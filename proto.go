@@ -1,0 +1,213 @@
+package beaconpi
+
+import (
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"time"
+)
+
+const (
+	DEFAULT_PORT = "6699"
+	MAX_BEACONS  = 256
+	MAX_LOGS     = 256
+)
+
+type Uuid [16]byte
+
+type BeaconLog struct {
+	Datetime    time.Time
+	Rssi        int16
+	BeaconIndex uint16
+}
+
+type BeaconData struct {
+	Uuid  Uuid
+	Major uint16
+	Minor uint16
+}
+
+type BeaconLogPacket struct {
+	Flags uint8
+	// Sender uuid
+	Uuid    Uuid
+	Logs    []BeaconLog
+	Beacons []BeaconData
+}
+
+func (b *BeaconLog) MarshalBinary() ([]byte, error) {
+	outbuff := make([]byte, 12)
+	buff := new(bytes.Buffer)
+	littleEndianEncode(buff, b.Datetime.UnixNano()/1000)
+	copy(outbuff[:8], buff.Bytes()[:8])
+	littleEndianEncode(buff, b.Rssi)
+	copy(outbuff[8:10], buff.Bytes()[:2])
+	littleEndianEncode(buff, b.BeaconIndex)
+	copy(outbuff[10:12], buff.Bytes()[:2])
+	return outbuff, nil
+}
+
+func (b *BeaconData) MarshalBinary() ([]byte, error) {
+	outbuff := make([]byte, 20)
+	copy(outbuff[0:16], b.Uuid[:])
+	buff := new(bytes.Buffer)
+	littleEndianEncode(buff, b.Major)
+	copy(outbuff[16:18], buff.Bytes()[:2])
+	littleEndianEncode(buff, b.Minor)
+	copy(outbuff[18:20], buff.Bytes()[:2])
+	return outbuff, nil
+}
+
+func (b *BeaconLogPacket) MarshalBinary() ([]byte, error) {
+	buff := new(bytes.Buffer)
+	if len(b.Logs) > MAX_LOGS {
+		return nil, errors.New("Protocol limits logs to 256")
+	}
+	if len(b.Beacons) > MAX_BEACONS {
+		return nil, errors.New("Protocol limits beacons to 256")
+	}
+	logsb := 12 * len(b.Logs)
+	beacb := 20 * len(b.Beacons)
+
+	outbuff := make([]byte, 21+logsb+beacb)
+	pointer := 0
+	// 1 byte
+	littleEndianEncode(buff, b.Flags)
+	copy(outbuff, buff.Bytes()[:1])
+	pointer += 1
+	// 16 byte
+	uuidbuf := b.Uuid[:]
+	copy(outbuff[pointer:pointer+16], uuidbuf)
+	pointer += 16
+	// 2 byte
+	littleEndianEncode(buff, uint16(len(b.Beacons)))
+	copy(outbuff[pointer:pointer+2], buff.Bytes()[:2])
+	pointer += 2
+	littleEndianEncode(buff, uint16(len(b.Logs)))
+	copy(outbuff[pointer:pointer+2], buff.Bytes()[:2])
+	pointer += 2
+
+	// Beacons
+	for i := range b.Beacons {
+		// 20 bytes each
+		bdata, _ := b.Beacons[i].MarshalBinary()
+		copy(outbuff[pointer:pointer+20], bdata)
+		pointer += 20
+	}
+	// Logs
+	for i := range b.Logs {
+		// 12 bytes each
+		ldata, _ := b.Logs[i].MarshalBinary()
+		copy(outbuff[pointer:pointer+12], ldata)
+		pointer += 12
+	}
+	return outbuff, nil
+}
+
+func (b *BeaconLog) UnmarshalBinary(data []byte) error {
+	if len(data) != 12 {
+		return errors.New("Input data buffer not 12 bytes")
+	}
+	var temptime int64
+	if err := littleEndianDecode(data[0:8], &temptime); err != nil {
+		return err
+	}
+	sec := temptime / 1000000
+	nsec := (temptime % 1000000) * 1000
+	b.Datetime = time.Unix(sec, nsec)
+	if err := littleEndianDecode(data[8:10], &b.Rssi); err != nil {
+		return err
+	}
+	if err := littleEndianDecode(data[10:12], &b.BeaconIndex); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (b *BeaconData) UnmarshalBinary(data []byte) error {
+	if len(data) != 20 {
+		return errors.New("Input data buffer not 20 bytes")
+	}
+	copy(b.Uuid[:], data[0:16])
+	if err := littleEndianDecode(data[16:18], &b.Major); err != nil {
+		return err
+	}
+	if err := littleEndianDecode(data[18:20], &b.Minor); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
+	if len(data) < 21 {
+		return errors.New("Packet header too small")
+	}
+	pointer := 0
+	if err := littleEndianDecode(data[pointer:pointer+1], &b.Flags); err != nil {
+		return err
+	}
+	pointer += 1
+	// Check for version 1
+	if b.Flags&0x0F != 0 {
+		return errors.New("This version of the library only supports version 0" +
+			" of the protocol, a higher version was presented")
+	}
+	copy(b.Uuid[:], data[pointer:pointer+16])
+	pointer += 16
+	var nbeacons uint16
+	var nlogs uint16
+	if err := littleEndianDecode(data[pointer:pointer+2], &nbeacons); err != nil {
+		return err
+	}
+	pointer += 2
+	if err := littleEndianDecode(data[pointer:pointer+2], &nlogs); err != nil {
+		return err
+	}
+	pointer += 2
+	// Check if the data remaining will still fit in the slice
+	if nlogs > MAX_LOGS {
+		return errors.New("Protocol limits logs to 256, sender sent invalid packet")
+	}
+	if nbeacons > MAX_BEACONS {
+		return errors.New("Protocol limits beacons to 256, sender sent invalid packet")
+	}
+	requiredlen := 20*int(nbeacons) + 12*int(nlogs) + 21
+	if len(data) < requiredlen {
+		// Data is too small
+		return errors.New("Input data buffer is too small to support number of beacons and logs")
+	} else if len(data) > int(requiredlen) {
+		return errors.New("Input data buffer is too long to support number of beacons and logs")
+	}
+	b.Beacons = make([]BeaconData, nbeacons)
+	b.Logs = make([]BeaconLog, nlogs)
+	for i := 0; i < int(nbeacons); i++ {
+		err := b.Beacons[i].UnmarshalBinary(data[pointer : pointer+20])
+		pointer += 20
+		if err != nil {
+			return fmt.Errorf("Error occured while parsing beacon data: %s", err)
+		}
+	}
+
+	for i := 0; i < int(nlogs); i++ {
+		err := b.Logs[i].UnmarshalBinary(data[pointer : pointer+12])
+		pointer += 12
+		if err != nil {
+			return fmt.Errorf("Error occured while parsing log data: %s", err)
+		}
+	}
+	return nil
+}
+
+func littleEndianEncode(b *bytes.Buffer, i interface{}) {
+	b.Reset()
+	err := binary.Write(b, binary.LittleEndian, i)
+	if err != nil {
+		panic("Failed while encoding to little endian" + err.Error())
+	}
+}
+
+func littleEndianDecode(b []byte, i interface{}) error {
+	bb := bytes.NewBuffer(b)
+	return binary.Read(bb, binary.LittleEndian, i)
+}
