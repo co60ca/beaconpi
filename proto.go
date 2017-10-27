@@ -1,3 +1,20 @@
+// Beacon Pi, a edge node system for iBeacons and Edge nodes made of Pi
+// Copyright (C) 2017  Maeve Kennedy
+// 
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+//
 package beaconpi
 
 import (
@@ -6,15 +23,25 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"strconv"
+	"encoding/hex"
 )
 
 const (
-	DEFAULT_PORT = "6699"
+	DEFAULT_PORT = "32969"
 	MAX_BEACONS  = 256
 	MAX_LOGS     = 256
+	CURRENT_VERSION = 0
 )
 
 type Uuid [16]byte
+
+func (u Uuid) String() string {
+	return fmt.Sprintf("%s-%s-%s-%s-%s",
+		hex.EncodeToString(u[0:4]), hex.EncodeToString(u[4:6]),
+		hex.EncodeToString(u[6:8]), hex.EncodeToString(u[8:10]),
+		hex.EncodeToString(u[10:16]))
+}
 
 type BeaconLog struct {
 	Datetime    time.Time
@@ -28,12 +55,38 @@ type BeaconData struct {
 	Minor uint16
 }
 
+func (b *BeaconData) String() string {
+	return fmt.Sprintf("%s,%d,%d", b.Uuid, b.Major, b.Minor)
+}
+
+const (
+  VERSION_MASK = 0x0F
+  RESPONSE_INVALID = 0x10
+  RESPONSE_TOOMANY = 0x20
+  RESPONSE_RESTART = 0x40
+  RESPONSE_SHUTDOWN = 0x80
+  RESPONSE_UPDATE = 0x100
+	RESPONSE_BEACON_UPDATES = 0x200
+	RESPONSE_INTERNAL_FAILURE = 0x400
+	RESPONSE_OK = 0x800
+  RESPONSE_SYSTEM = 0x8000
+	// Requests have only 0xF0 to work with for flags
+	REQUEST_BEACON_UPDATES = 0x10
+)
+
+
 type BeaconLogPacket struct {
 	Flags uint8
 	// Sender uuid
 	Uuid    Uuid
 	Logs    []BeaconLog
 	Beacons []BeaconData
+}
+
+type BeaconResponsePacket struct {
+  Flags uint16
+  //LengthData uint32
+  Data string
 }
 
 func (b *BeaconLog) MarshalBinary() ([]byte, error) {
@@ -72,14 +125,17 @@ func (b *BeaconLogPacket) MarshalBinary() ([]byte, error) {
 
 	outbuff := make([]byte, 21+logsb+beacb)
 	pointer := 0
+
 	// 1 byte
 	littleEndianEncode(buff, b.Flags)
 	copy(outbuff, buff.Bytes()[:1])
 	pointer += 1
+
 	// 16 byte
 	uuidbuf := b.Uuid[:]
 	copy(outbuff[pointer:pointer+16], uuidbuf)
 	pointer += 16
+
 	// 2 byte
 	littleEndianEncode(buff, uint16(len(b.Beacons)))
 	copy(outbuff[pointer:pointer+2], buff.Bytes()[:2])
@@ -149,7 +205,7 @@ func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
 	}
 	pointer += 1
 	// Check for version 1
-	if b.Flags&0x0F != 0 {
+	if b.Flags & VERSION_MASK != 0 {
 		return errors.New("This version of the library only supports version 0" +
 			" of the protocol, a higher version was presented")
 	}
@@ -196,6 +252,44 @@ func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
 			return fmt.Errorf("Error occured while parsing log data: %s", err)
 		}
 	}
+	return nil
+}
+
+func (b *BeaconResponsePacket) MarshalBinary() ([]byte, error) {
+  bb := new(bytes.Buffer)
+  if len(b.Data) > (1 << 30) {
+    return []byte{}, errors.New("Data field is too long " + strconv.Itoa(len(b.Data)))
+  }
+  reqlen := len(b.Data) + 2 + 4
+  resp := make([]byte, reqlen)
+  littleEndianEncode(bb, b.Flags)
+  copy(resp[0:2], bb.Bytes()[0:2])
+  littleEndianEncode(bb, uint32(len(b.Data)))
+  copy(resp[2:6], bb.Bytes()[0:4])
+  copy(resp[6:], []byte(b.Data))
+
+  return resp, nil
+}
+
+func (b *BeaconResponsePacket) UnmarshalBinary(d []byte) error {
+  if len(d) < 6 {
+    return errors.New("Response packet is minimum 6 bytes")
+  }
+  if err := littleEndianDecode(d[0:2], &b.Flags); err != nil {
+    return err
+  }
+  if b.Flags & VERSION_MASK != 0 {
+    return errors.New("Version of packet is too new, we only support version <= 0")
+  }
+
+  var dl uint32
+  if err := littleEndianDecode(d[2:6], &dl); err != nil {
+    return err
+  }
+  if len(d) < int(dl) + 6 {
+    return errors.New("Response packet is too short given data")
+  }
+	b.Data = string(d[6:])
 	return nil
 }
 

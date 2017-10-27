@@ -1,3 +1,19 @@
+// Beacon Pi, a edge node system for iBeacons and Edge nodes made of Pi
+// Copyright (C) 2017  Maeve Kennedy
+// 
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package beaconpi
 
 import (
@@ -51,6 +67,7 @@ func TestEncodePacket(t *testing.T) {
 		Beacons: []BeaconData{BeaconData{Uuid: Uuid{0x95, 0x66, 0xc7, 0x4d, 0x10,
 			0x3, 0x7c, 0x4d, 0x7b, 0xbb, 0x4, 0x7, 0xd1, 0xe2, 0xc6, 0x49},
 			Major: 0x6, Minor: 0x19}}}
+
 	t.Logf("Packet structure %#v\n", p)
 	binblp, err = p.MarshalBinary()
 	if err != nil {
@@ -78,6 +95,29 @@ func TestDecodePacket(t *testing.T) {
 	if err := tar.UnmarshalBinary(p); err != nil {
 		t.Fatalf("Failed to parse with %s\n", err)
 	}
-	t.Logf("%#v\n", tar)
 	t.Log("Time: ", tar.Logs[0].Datetime)
+}
+
+func TestEncodeResponse(t *testing.T) {
+	var packet BeaconResponsePacket
+
+	packet.Flags = 0x5550
+	packet.Data = "1234567890"
+	res, err := packet.MarshalBinary()
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := []byte{0x50, 0x55, 0xa, 0x0, 0x0, 0x0, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30}
+
+	if ! bytes.Equal(d, res) {
+		t.Fatal("Bytes not the same value")
+	}
+	var decodetest BeaconResponsePacket
+	decodetest.UnmarshalBinary(d)
+	if decodetest.Flags != packet.Flags {
+		t.Fatal("Flags not correct")
+	}
+	if decodetest.Data != packet.Data {
+		t.Fatal("Data not correct")
+	}
 }

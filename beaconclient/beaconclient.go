@@ -1,52 +1,25 @@
+// Beacon Pi, a edge node system for iBeacons and Edge nodes made of Pi
+// Copyright (C) 2017  Maeve Kennedy
+// 
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package main
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"flag"
 	"github.com/co60ca/beaconpi"
-	"io/ioutil"
-	"log"
 )
 
 func main() {
-	log.SetFlags(log.Lshortfile)
-	var servcertfile, clientcertfile, clientkeyfile string
-	flag.StringVar(&servcertfile, "serv-cert-file", "", "Has trusted keys")
-	flag.StringVar(&clientcertfile, "client-cert-file", "", "")
-	flag.StringVar(&clientkeyfile, "client-key-file", "", "")
-	flag.Parse()
-
-	certpool := beaconpi.LoadFileToCert(servcertfile)
-	if certpool == nil {
-		log.Fatal("Something happened while loading the certfile")
-	}
-
-	clientcert, err := tls.LoadX509KeyPair(clientcertfile, clientkeyfile)
-	if err != nil {
-		log.Fatal("Failed to open x509 keypair", err)
-	}
-
-	conf := &tls.Config{
-		RootCAs:      certpool,
-		Certificates: []tls.Certificate{clientcert},
-	}
-	port := beaconpi.DEFAULT_PORT
-	conn, err := tls.Dial("tcp", "localhost:"+port, conf)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
-
-	_, err = conn.Write([]byte("OwO\n"))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	buf := make([]byte, 100)
-	_, err = conn.Read(buf)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(string(buf))
+	beaconpi.StartClient()
 }

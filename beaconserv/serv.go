@@ -1,59 +1,28 @@
+// Beacon Pi, a edge node system for iBeacons and Edge nodes made of Pi
+// Copyright (C) 2017  Maeve Kennedy
+// 
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+//
 package main
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"github.com/co60ca/beaconpi"
-	"io/ioutil"
-	"log"
-	"net"
-	//	"bufio"
-	"flag"
 )
 
 func main() {
-	log.SetFlags(log.Lshortfile)
-
-	var x509cert, x509key string
-	flag.StringVar(&x509cert, "serv-cert", "", "x509 server public certificate")
-	flag.StringVar(&x509key, "serv-key", "", "x509 server private key")
-	flag.Parse()
-
-	if x509cert == "" || x509key == "" {
-		log.Fatal("Both cert and key must be provided")
-	}
-
-	cerpoolrootca := beaconpi.LoadFileToCert(x509cert)
-
-	cer, err := tls.LoadX509KeyPair(x509cert, x509key)
-	if err != nil {
-		log.Fatal(err)
-	}
-	port := beaconpi.DEFAULT_PORT
-	config := &tls.Config{
-		Certificates: []tls.Certificate{cer},
-		ClientCAs:    cerpoolrootca,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-	}
-	ln, err := tls.Listen("tcp", ":"+port, config)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer ln.Close()
-
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		go handleConnection(conn)
-	}
-}
-
-func handleConnection(conn net.Conn) {
-	j := make([]byte, 64)
-	conn.Read(j)
-	log.Println(string(j))
-	defer conn.Close()
+	config := beaconpi.GetFlags()
+	beaconpi.StartServer(config.X509cert, config.X509key,
+			config.Drivername, config.DSN, nil)
 }
