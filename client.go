@@ -77,6 +77,7 @@ func StartClient() {
 	client.nodes = make(map[string]struct{})
 	client.tlsconf = conf
 	client.host = servhost+":"+servport
+	client.uuid = clientuuid
 	clientLoop(&client)
 }
 
