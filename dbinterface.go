@@ -136,7 +136,7 @@ func dbCompleteControl(packet *BeaconLogPacket, db *sql.DB) error {
 	if err != nil {
 		return errors.New("Failed to update control because: " + err.Error())
 	}
-	pdata := strings.SplitN(packet.ControlData, "\n", 0)
+	pdata := strings.SplitN(packet.ControlData, "\n", 1)
 	if len(pdata) != 2 {
 		return errors.New("Failed to update control because split invalid")
 	}

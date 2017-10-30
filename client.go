@@ -226,7 +226,7 @@ func readUpdates(client *clientinfo, buff *bytes.Buffer) {
 }
 
 func handleSystem(client *clientinfo, brp *BeaconResponsePacket) {
-	cd := strings.SplitN(brp.Data, "\n", 0)
+	cd := strings.SplitN(brp.Data, "\n", 1)
 	if len(cd) != 2 {
 		log.Println("Sent control is invalid", cd, brp.Data)
 		return
