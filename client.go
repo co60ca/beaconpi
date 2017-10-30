@@ -89,6 +89,7 @@ func clientLoop(client *clientinfo) {
 	requestBeacons(client)
 
 	datapacket := new(BeaconLogPacket)
+	copy(datapacket.Uuid[:], client.uuid[:])
 	datapacket.Flags = CURRENT_VERSION
 
 	// Map from uuid,major,minor to offset
@@ -107,6 +108,7 @@ func clientLoop(client *clientinfo) {
 				currentbeacons = make(map[string]int)
 				datapacket = new(BeaconLogPacket)
 				datapacket.Flags = CURRENT_VERSION
+				copy(datapacket.Uuid[:], client.uuid[:])
 
 			case tempbr := <-brs:
 				beaconstr := tempbr.BeaconData.String()
@@ -128,6 +130,7 @@ func clientLoop(client *clientinfo) {
 			// Reset data
 			currentbeacons = make(map[string]int)
 			datapacket = new(BeaconLogPacket)
+			copy(datapacket.Uuid[:], client.uuid[:])
 			datapacket.Flags = CURRENT_VERSION
 		}
 	}
@@ -166,6 +169,7 @@ func sendData(client *clientinfo, datapacket *BeaconLogPacket) {
 func requestBeacons(client *clientinfo) {
 	var blp BeaconLogPacket
 	blp.Flags |= REQUEST_BEACON_UPDATES
+	copy(blp.Uuid[:], client.uuid[:])
 	buffer, err := blp.MarshalBinary()
 	if err != nil {
 		log.Fatal("Failed to marshal request message", err)
