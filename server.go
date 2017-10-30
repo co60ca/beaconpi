@@ -218,7 +218,7 @@ func handleConnection(conn net.Conn) {
 		defer db.Close()
 		control, err := dbGetControl(&message, db)
 		if err != nil {
-			log.Printf("Failed to get control, passing: %s", err)
+			log.Printf("DEBUG: Failed to get control, passing: %s", err)
 		} else {
 			resp.Data = control
 			resp.Flags |= RESPONSE_SYSTEM
@@ -246,7 +246,7 @@ func handlePacket(pack *BeaconLogPacket) {
 		return
 	}
 	log.Println("Packet from ", pack.Uuid, edgeid)
-	if err := dbAddLogsForBeacons(pack, edgeid, db); err != nil {
+	if err = dbAddLogsForBeacons(pack, edgeid, db); err != nil {
 		log.Println("Error when checking in logs for beacon", err)
 		return
 	}
