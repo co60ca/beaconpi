@@ -29,6 +29,7 @@ import (
 	"os/exec"
 	"strconv"
 	"encoding/json"
+	"encoding/hex"
 )
 
 const (
@@ -80,7 +81,11 @@ func StartClient() {
 	client.nodes = make(map[string]struct{})
 	client.tlsconf = conf
 	client.host = servhost+":"+servport
-	copy(client.uuid[:], []byte(clientuuid))
+	uuiddec, err := hex.DecodeString(clientuuid)
+	if err != nil {
+		log.Fatal("uuid is not valid hex, do not include -")
+	}
+	copy(client.uuid[:], uuiddec)
 	clientLoop(&client)
 }
 
