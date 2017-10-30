@@ -31,6 +31,7 @@ const (
 	DEFAULT_PORT = "32969"
 	MAX_BEACONS  = 256
 	MAX_LOGS     = 256
+	MAX_CTRL		 = 65535
 	CURRENT_VERSION = 0
 )
 
@@ -62,16 +63,18 @@ func (b *BeaconData) String() string {
 const (
   VERSION_MASK = 0x0F
   RESPONSE_INVALID = 0x10
-  RESPONSE_TOOMANY = 0x20
-  RESPONSE_RESTART = 0x40
-  RESPONSE_SHUTDOWN = 0x80
-  RESPONSE_UPDATE = 0x100
-	RESPONSE_BEACON_UPDATES = 0x200
-	RESPONSE_INTERNAL_FAILURE = 0x400
-	RESPONSE_OK = 0x800
+	RESPONSE_OK = 0x20
+  RESPONSE_TOOMANY = 0x40
+  RESPONSE_RESTART = 0x80
+  RESPONSE_SHUTDOWN = 0x100
+  RESPONSE_UPDATE = 0x200
+	RESPONSE_BEACON_UPDATES = 0x400
+	RESPONSE_INTERNAL_FAILURE = 0x800
   RESPONSE_SYSTEM = 0x8000
 	// Requests have only 0xF0 to work with for flags
 	REQUEST_BEACON_UPDATES = 0x10
+	REQUEST_CONTROL_LOG = 0x20
+	REQUEST_CONTROL_COMPLETE = 0x40
 )
 
 
@@ -81,6 +84,7 @@ type BeaconLogPacket struct {
 	Uuid    Uuid
 	Logs    []BeaconLog
 	Beacons []BeaconData
+	ControlData		string
 }
 
 type BeaconResponsePacket struct {
@@ -120,10 +124,14 @@ func (b *BeaconLogPacket) MarshalBinary() ([]byte, error) {
 	if len(b.Beacons) > MAX_BEACONS {
 		return nil, errors.New("Protocol limits beacons to 256")
 	}
+	if len(b.ControlData) > MAX_CTRL {
+		return nil, errors.New("Protocol limits control data to 65535")
+	}
 	logsb := 12 * len(b.Logs)
 	beacb := 20 * len(b.Beacons)
+	controldata := len(b.ControlData)
 
-	outbuff := make([]byte, 21+logsb+beacb)
+	outbuff := make([]byte, 23+logsb+beacb+controldata)
 	pointer := 0
 
 	// 1 byte
@@ -143,6 +151,9 @@ func (b *BeaconLogPacket) MarshalBinary() ([]byte, error) {
 	littleEndianEncode(buff, uint16(len(b.Logs)))
 	copy(outbuff[pointer:pointer+2], buff.Bytes()[:2])
 	pointer += 2
+	littleEndianEncode(buff, uint16(len(b.ControlData)))
+	copy(outbuff[pointer:pointer+2], buff.Bytes()[:2])
+	pointer += 2
 
 	// Beacons
 	for i := range b.Beacons {
@@ -158,6 +169,8 @@ func (b *BeaconLogPacket) MarshalBinary() ([]byte, error) {
 		copy(outbuff[pointer:pointer+12], ldata)
 		pointer += 12
 	}
+	// Control data
+	copy(outbuff[pointer:pointer+len(b.ControlData)], []byte(b.ControlData))
 	return outbuff, nil
 }
 
@@ -196,7 +209,7 @@ func (b *BeaconData) UnmarshalBinary(data []byte) error {
 }
 
 func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
-	if len(data) < 21 {
+	if len(data) < 23 {
 		return errors.New("Packet header too small")
 	}
 	pointer := 0
@@ -205,7 +218,7 @@ func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
 	}
 	pointer += 1
 	// Check for version 1
-	if b.Flags & VERSION_MASK != 0 {
+	if b.Flags & VERSION_MASK != CURRENT_VERSION {
 		return errors.New("This version of the library only supports version 0" +
 			" of the protocol, a higher version was presented")
 	}
@@ -213,11 +226,16 @@ func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
 	pointer += 16
 	var nbeacons uint16
 	var nlogs uint16
+	var ncontrol uint16
 	if err := littleEndianDecode(data[pointer:pointer+2], &nbeacons); err != nil {
 		return err
 	}
 	pointer += 2
 	if err := littleEndianDecode(data[pointer:pointer+2], &nlogs); err != nil {
+		return err
+	}
+	pointer += 2
+	if err := littleEndianDecode(data[pointer:pointer+2], &ncontrol); err != nil {
 		return err
 	}
 	pointer += 2
@@ -228,7 +246,10 @@ func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
 	if nbeacons > MAX_BEACONS {
 		return errors.New("Protocol limits beacons to 256, sender sent invalid packet")
 	}
-	requiredlen := 20*int(nbeacons) + 12*int(nlogs) + 21
+	if ncontrol > MAX_CTRL {
+		return errors.New("Protocol limits control messages to 65535, sender sent invalid packet")
+	}
+	requiredlen := 20*int(nbeacons) + 12*int(nlogs) + 23
 	if len(data) < requiredlen {
 		// Data is too small
 		return errors.New("Input data buffer is too small to support number of beacons and logs")
@@ -252,6 +273,7 @@ func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
 			return fmt.Errorf("Error occured while parsing log data: %s", err)
 		}
 	}
+	b.ControlData = string(data[pointer:pointer+int(ncontrol)])
 	return nil
 }
 
@@ -278,7 +300,7 @@ func (b *BeaconResponsePacket) UnmarshalBinary(d []byte) error {
   if err := littleEndianDecode(d[0:2], &b.Flags); err != nil {
     return err
   }
-  if b.Flags & VERSION_MASK != 0 {
+  if b.Flags & VERSION_MASK != CURRENT_VERSION {
     return errors.New("Version of packet is too new, we only support version <= 0")
   }
 

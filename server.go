@@ -115,15 +115,14 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 func handleConnection(conn net.Conn) {
 	// TODO(mae)  We use ioutil.ReadAll here but in the future we should use
 	// bytes.Buffer.ReadFrom with handling to prevent a buffer over the max size
-	flags := uint16(CURRENT_VERSION)
 	buff, err := ioutil.ReadAll(conn)
 	log.Println("Read from connection")
+	var resp BeaconResponsePacket
+	resp.Flags = CURRENT_VERSION
 	if err != nil {
 		log.Println("Message failed to read with:" , err)
-		flags |= RESPONSE_INVALID
+		resp.Flags |= RESPONSE_INVALID
 		// TODO different flags based on the errors
-		var resp BeaconResponsePacket
-		resp.Flags = flags
 		writeResponseAndClose(conn, &resp, true)
 		return
 	}
@@ -132,30 +131,26 @@ func handleConnection(conn net.Conn) {
 	err = message.UnmarshalBinary(buff)
 	if err != nil {
 		log.Println("Failed to parse message with:", err)
-		flags |= RESPONSE_INVALID
-		var resp BeaconResponsePacket
-		resp.Flags = flags
+		resp.Flags |= RESPONSE_INVALID
 		writeResponseAndClose(conn, &resp, true)
 		return
 	}
 
+
 	// Client request beacon updates
 	if message.Flags & REQUEST_BEACON_UPDATES != 0 {
-		var resp BeaconResponsePacket
 		db, err := db.openDB()
-		defer db.Close()
 		if err != nil {
 			log.Println("Failed to open DB", err)
-			flags |= RESPONSE_INTERNAL_FAILURE
-			resp.Flags = flags
+			resp.Flags |= RESPONSE_INTERNAL_FAILURE
 			writeResponseAndClose(conn, &resp, true)
 			return
 		}
+		defer db.Close()
 		beacons, err := dbGetBeacons(db)
 		if err != nil {
 			log.Println("Failed to get Beacons", err)
-			flags |= RESPONSE_INTERNAL_FAILURE
-			resp.Flags = flags
+			resp.Flags |= RESPONSE_INTERNAL_FAILURE
 			writeResponseAndClose(conn, &resp, true)
 			return
 		}
@@ -166,13 +161,69 @@ func handleConnection(conn net.Conn) {
 			resp.Data = resp.Data[1:]
 		}
 
-		flags |= RESPONSE_BEACON_UPDATES
-		resp.Flags = flags
+		resp.Flags |= RESPONSE_BEACON_UPDATES
+		writeResponseAndClose(conn, &resp, true)
+		return
+	}
+	if message.Flags & REQUEST_CONTROL_LOG != 0 {
+		db, err := db.openDB()
+		if err != nil {
+			log.Println("Failed to open DB", err)
+			resp.Flags |= RESPONSE_INTERNAL_FAILURE
+			writeResponseAndClose(conn, &resp, true)
+			return
+		}
+		defer db.Close()
+		edgeid, err := dbCheckUuid(message.Uuid, db)
+		if err != nil {
+			log.Printf("Error occured edgeid \"%s\" was not found in db: %s", message.Uuid, err)
+			resp.Flags |= RESPONSE_INTERNAL_FAILURE
+			writeResponseAndClose(conn, &resp, true)
+			return
+		}
+		if err = dbInsertControlLog(edgeid, &message, db); err != nil {
+			log.Printf("Error occured %s", err)
+			resp.Flags |= RESPONSE_INTERNAL_FAILURE
+		} else {
+			resp.Flags |= RESPONSE_OK
+		}
+		writeResponseAndClose(conn, &resp, true)
+		return
+	} else if message.Flags & REQUEST_CONTROL_COMPLETE != 0 {
+		db, err := db.openDB()
+		if err != nil {
+			log.Println("Failed to open DB", err)
+			resp.Flags |= RESPONSE_INTERNAL_FAILURE
+			writeResponseAndClose(conn, &resp, true)
+			return
+		}
+		defer db.Close()
+		err = dbCompleteControl(&message, db)
+		if err != nil {
+			log.Println("Failed to update control")
+			resp.Flags |= RESPONSE_INTERNAL_FAILURE
+			writeResponseAndClose(conn, &resp, true)
+			return
+		}
+		resp.Flags |= RESPONSE_OK
 		writeResponseAndClose(conn, &resp, true)
 	} else {
-		var resp BeaconResponsePacket
-		resp.Flags = CURRENT_VERSION
-		flags |= RESPONSE_OK
+		db, err := db.openDB()
+		if err != nil {
+			log.Println("Failed to open DB", err)
+			resp.Flags |= RESPONSE_INTERNAL_FAILURE
+			writeResponseAndClose(conn, &resp, true)
+			return
+		}
+		defer db.Close()
+		control, err := dbGetControl(&message, db)
+		if err != nil {
+			log.Printf("Failed to get control, passing: %s", err)
+		} else {
+			resp.Data = control
+			resp.Flags |= RESPONSE_SYSTEM
+		}
+		resp.Flags |= RESPONSE_OK
 		writeResponseAndClose(conn, &resp, true)
 	}
 
@@ -191,7 +242,7 @@ func handlePacket(pack *BeaconLogPacket) {
 
 	edgeid, err = dbCheckUuid(pack.Uuid, db)
 	if err != nil {
-		log.Println("Error occured edgeid was not found in db", err)
+		log.Printf("Error occured edgeid \"%s\" was not found in db: %s", pack.Uuid, err)
 		return
 	}
 	log.Println("Packet from ", pack.Uuid, edgeid)

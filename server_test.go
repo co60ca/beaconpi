@@ -10,6 +10,9 @@ import (
 )
 
 func TestDB(t *testing.T) {
+	// Always skip this
+	t.Skip()
+
 	logfname := "test.log"
 	logf, err := os.Create(logfname)
 	if err != nil {

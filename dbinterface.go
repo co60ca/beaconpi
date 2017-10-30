@@ -25,6 +25,7 @@ import (
 	"log"
 	"encoding/hex"
 	"strings"
+	"strconv"
 )
 
 type dbHandler struct {
@@ -116,6 +117,73 @@ func dbGetBeacons(db *sql.DB) ([]BeaconData, error) {
 		rval = append(rval, bdtemp)
 	}
 	return rval, nil
+}
+
+func dbInsertControlLog(edgenodeid int, packet *BeaconLogPacket, db *sql.DB) error {
+	rows, err := db.Query(`
+		insert into control_log (edgenodeid, data)
+		values ($1, $2)
+	`, edgenodeid, packet.ControlData);
+	if err != nil {
+		return errors.New("Failed to insert control log: " + err.Error())
+	}
+	rows.Close()
+	return nil
+}
+
+func dbCompleteControl(packet *BeaconLogPacket, db *sql.DB) error {
+	edgeid, err := dbCheckUuid(packet.Uuid, db)
+	if err != nil {
+		return errors.New("Failed to update control because: " + err.Error())
+	}
+	pdata := strings.SplitN("\n", packet.ControlData, 0)
+	if len(pdata) != 2 {
+		return errors.New("Failed to update control because split invalid")
+	}
+	controlid, err := strconv.Atoi(pdata[0])
+	if err != nil {
+		return errors.New("Failed to update control because: " + err.Error())
+	}
+	rows, err := db.Query(`
+		update control_commands
+		set (COMPLETED) = (TRUE)
+		where edgenodeid = $1 and controlid = $2
+	`, edgeid, controlid)
+	if err != nil {
+		return errors.New("Failed to update control because: " + err.Error())
+	}
+	rows.Close()
+	rows, err = db.Query(`
+		insert into control_log 
+		(edgenodeid, controlid, text) VALUES
+		($1, $2, $3)
+	`, edgeid, controlid, pdata[1])
+	if err != nil {
+		return errors.New("Failed to update control because: " + err.Error())
+	}
+	rows.Close()
+	return nil
+}
+
+func dbGetControl(packet *BeaconLogPacket, db *sql.DB) (string, error) {
+	edgeid, err := dbCheckUuid(packet.Uuid, db)
+	if err != nil {
+		return "", errors.New("Failed to get control because: " + err.Error())
+	}
+	var data string
+	var id int
+	err = db.QueryRow(`
+		select id, data
+		from control_commands
+		where edgenodeid = $1 and completed = FALSE
+		order by datetime desc
+		limit 1
+	`, edgeid).Scan(&id, &data)
+
+	if err != nil {
+		return "", errors.New("Failed to get control because: " + err.Error())
+	}
+	return strconv.Itoa(id) + "\n" + data , nil
 }
 
 // Returns the ID of the edge
