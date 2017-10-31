@@ -176,7 +176,7 @@ func dbGetControl(packet *BeaconLogPacket, db *sql.DB) (string, error) {
 		select id, data
 		from control_commands
 		where edgenodeid = $1 and completed = FALSE
-		order by datetime desc
+		order by datetime
 		limit 1
 	`, edgeid).Scan(&id, &data)
 
