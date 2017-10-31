@@ -216,7 +216,7 @@ func readUpdates(client *clientinfo, buff *bytes.Buffer) {
 		return
 	}
 	if brp.Flags & RESPONSE_BEACON_UPDATES != 0 {
-		splitnl := strings.SplitAfter(brp.Data, "\n")
+		splitnl := strings.Split(brp.Data, "\n")
 		client.Lock()
 		defer client.Unlock()
 		client.nodes = make(map[string]struct{})
