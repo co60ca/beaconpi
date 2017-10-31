@@ -155,7 +155,7 @@ func dbCompleteControl(packet *BeaconLogPacket, db *sql.DB) error {
 	rows.Close()
 	rows, err = db.Query(`
 		insert into control_log 
-		(edgenodeid, controlid, text) VALUES
+		(edgenodeid, controlid, data) VALUES
 		($1, $2, $3)
 	`, edgeid, controlid, pdata[1])
 	if err != nil {
