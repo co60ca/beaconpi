@@ -34,7 +34,7 @@ import (
 
 const (
 	TIMEOUT_BEACON_REFRESH time.Duration = 1*time.Minute
-	TIMEOUT_BEACON time.Duration = 10*time.Second
+	TIMEOUT_BEACON time.Duration = 2*time.Second
 )
 
 type clientinfo struct {
