@@ -55,7 +55,7 @@ func GetFlags() (out ServerConfig) {
 }
 
 func StartServer(x509cert, x509key, drivername, dsn string, end chan struct{}) {
-	log.SetFlags(log.Lshortfile)
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
 	db = new(dbHandler)
 	db.Drivername = drivername

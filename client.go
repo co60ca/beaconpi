@@ -29,11 +29,12 @@ import (
 	"os/exec"
 	"strconv"
 	"encoding/json"
+	"encoding/hex"
 )
 
 const (
 	TIMEOUT_BEACON_REFRESH time.Duration = 1*time.Minute
-	TIMEOUT_BEACON time.Duration = 10*time.Second
+	TIMEOUT_BEACON time.Duration = 2*time.Second
 )
 
 type clientinfo struct {
@@ -80,7 +81,11 @@ func StartClient() {
 	client.nodes = make(map[string]struct{})
 	client.tlsconf = conf
 	client.host = servhost+":"+servport
-	copy(client.uuid[:], []byte(clientuuid))
+	uuiddec, err := hex.DecodeString(clientuuid)
+	if err != nil {
+		log.Fatal("uuid is not valid hex, do not include -")
+	}
+	copy(client.uuid[:], uuiddec)
 	clientLoop(&client)
 }
 
@@ -211,7 +216,7 @@ func readUpdates(client *clientinfo, buff *bytes.Buffer) {
 		return
 	}
 	if brp.Flags & RESPONSE_BEACON_UPDATES != 0 {
-		splitnl := strings.SplitAfter(brp.Data, "\n")
+		splitnl := strings.Split(brp.Data, "\n")
 		client.Lock()
 		defer client.Unlock()
 		client.nodes = make(map[string]struct{})

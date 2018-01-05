@@ -146,7 +146,7 @@ func dbCompleteControl(packet *BeaconLogPacket, db *sql.DB) error {
 	}
 	rows, err := db.Query(`
 		update control_commands
-		set (COMPLETED) = (TRUE)
+		set COMPLETED = TRUE
 		where edgenodeid = $1 and id = $2
 	`, edgeid, controlid)
 	if err != nil {
@@ -176,7 +176,7 @@ func dbGetControl(packet *BeaconLogPacket, db *sql.DB) (string, error) {
 		select id, data
 		from control_commands
 		where edgenodeid = $1 and completed = FALSE
-		order by datetime desc
+		order by datetime
 		limit 1
 	`, edgeid).Scan(&id, &data)
 
