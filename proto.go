@@ -249,7 +249,7 @@ func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
 	if ncontrol > MAX_CTRL {
 		return errors.New("Protocol limits control messages to 65535, sender sent invalid packet")
 	}
-	requiredlen := 20*int(nbeacons) + 12*int(nlogs) + 23
+	requiredlen := 20*int(nbeacons) + 12*int(nlogs) + int(ncontrol) + 23
 	if len(data) < requiredlen {
 		// Data is too small
 		return errors.New("Input data buffer is too small to support number of beacons and logs")

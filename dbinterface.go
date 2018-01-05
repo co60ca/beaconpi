@@ -147,7 +147,7 @@ func dbCompleteControl(packet *BeaconLogPacket, db *sql.DB) error {
 	rows, err := db.Query(`
 		update control_commands
 		set (COMPLETED) = (TRUE)
-		where edgenodeid = $1 and controlid = $2
+		where edgenodeid = $1 and id = $2
 	`, edgeid, controlid)
 	if err != nil {
 		return errors.New("Failed to update control because: " + err.Error())
@@ -155,7 +155,7 @@ func dbCompleteControl(packet *BeaconLogPacket, db *sql.DB) error {
 	rows.Close()
 	rows, err = db.Query(`
 		insert into control_log 
-		(edgenodeid, controlid, text) VALUES
+		(edgenodeid, controlid, data) VALUES
 		($1, $2, $3)
 	`, edgeid, controlid, pdata[1])
 	if err != nil {

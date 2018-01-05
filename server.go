@@ -200,7 +200,7 @@ func handleConnection(conn net.Conn) {
 		defer db.Close()
 		err = dbCompleteControl(&message, db)
 		if err != nil {
-			log.Println("Failed to update control")
+			log.Println("Failed to update control", err)
 			resp.Flags |= RESPONSE_INTERNAL_FAILURE
 			writeResponseAndClose(conn, &resp, true)
 			return
