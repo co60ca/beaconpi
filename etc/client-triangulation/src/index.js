@@ -2,6 +2,9 @@ var Fili = require('fili');
 var dateFormat = require('dateformat');
 var trilat = require('trilat');
 var Chart = require('chart.js');
+
+var target = 'http://3508data.soe.uoguelph.ca:32967'
+
 /*
 function getTrilateration(position1, position2, position3) {
   var input = [
@@ -355,7 +358,7 @@ function startLoop() {
     "Beacon": beaconid, 
     "Since": n
   };
-  fetch('http://3508data.soe.uoguelph.ca:32967/history/short', {
+  fetch(target + '/history/short', {
     method: "POST",
     body: JSON.stringify(bodyobj)
   }).then(function(res) {

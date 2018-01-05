@@ -7,7 +7,7 @@ SERVERENV =
 CLIENTENV = GOARCH=arm64 GOOS=linux
 
 .PHONY: all
-all: reqs build/beaconserv build/beaconclient 
+all: reqs build/beaconserv build/beaconclient build/metricsserv
 
 .PHONY: clean
 clean:
@@ -24,3 +24,6 @@ build/beaconserv:
 build/beaconclient:
 	$(CLIENTENV) \
 	go build -o $@ $(CLIENTFLAGS) $(PACKAGE)/beaconclient
+build/metricsserv:
+	$(SERVERENV) \
+	go build -o $@ $(SERVERFLAGS) $(PACKAGE)/metricsserv  

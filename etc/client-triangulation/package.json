@@ -4,11 +4,18 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "node_modules/.bin/webpack src/index.js bundle.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "dependencies": [
+    "chart.js",
+    "dateformat",
+    "fili",
+    "trilat"
+  ],
   "devDependencies": {
     "webpack": "^3.8.1"
   }
