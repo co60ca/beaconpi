@@ -37,7 +37,7 @@ Install on Raspberry Pis to provide `hcidump` which is depreciated in bluez; thi
 ## Configuration Requirements
   - Raspberry Pis must be altered to allow non root users to use `hcitool`the following command  
     ```bash
-    sudo setcap 'cap_net_raw,cap_net_admin+eip' $(which hcitool)`
+    sudo setcap 'cap_net_raw,cap_net_admin+eip' $(which hcitool)
     ```
     satisifies this requirement.
 
@@ -93,8 +93,8 @@ The database has allowlists tables for edge units and beacons.
 
 2. Insert edge details into `edge_node`. The edge nodes have a UUID that they identify themselves to the server with. The server will drop any sightings from beacons they don't identify. The client UUIDs will be located in `etc/client-maker/beacon.log` with the format: `"Pi ${n} has UUID:\n${uuid}"` Insert the rows as follows:
     ```sql
-        insert into edge_node (uuid, title, room, location, description)
-        values ('<uuid from beacon.log>', '<helpful title>', '<room name>', '<location name>', '<description>')
+    insert into edge_node (uuid, title, room, location, description)
+    values ('<uuid from beacon.log>', '<helpful title>', '<room name>', '<location name>', '<description>')
     ``` 
     the important field is the uuid, but for record keeping the other fields are provided. Title is restricted to 60 characters but the other fields are unstructured. Consider using location or description to provide specific details in the location or type of edge unit.
 ## Starting Everything
