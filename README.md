@@ -88,14 +88,14 @@ The database has allowlists tables for edge units and beacons.
     ```sql
     insert into beacon_list (label, uuid, major, minor) 
     values ('beacon a', '6b4f6d90-95b1-497d-be84-a12760413a3b', 0, 0)
-    ```
-Note that the uuid, major, minor must match the fields from the iBeacon in question.
-2. Insert edge details into `edge_node`. The edge nodes have a UUID that they identify themselves to the server with. The server will drop any sightings from beacons they don't identify. The client UUIDs will be located in `etc/client-maker/beacon.log` with the format: `"Pi ${n} has UUID:\n${uuid}"`
-Insert the rows as follows:
+    ``` 
+    Note that the uuid, major, minor must match the fields from the iBeacon in question.
+
+2. Insert edge details into `edge_node`. The edge nodes have a UUID that they identify themselves to the server with. The server will drop any sightings from beacons they don't identify. The client UUIDs will be located in `etc/client-maker/beacon.log` with the format: `"Pi ${n} has UUID:\n${uuid}"` Insert the rows as follows:
     ```sql
         insert into edge_node (uuid, title, room, location, description)
         values ('<uuid from beacon.log>', '<helpful title>', '<room name>', '<location name>', '<description>')
-    ```
+    ``` 
     the important field is the uuid, but for record keeping the other fields are provided. Title is restricted to 60 characters but the other fields are unstructured. Consider using location or description to provide specific details in the location or type of edge unit.
 ## Starting Everything
 The clients will fail and retry to connect to the server so as long as the database is up any order is permitted. However this the supported startup sequence.
