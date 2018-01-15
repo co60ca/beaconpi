@@ -5,7 +5,7 @@ import (
 	"log"
 	"encoding/json"
 	"time"
-	"github.com/lib/pq"
+	_ "github.com/lib/pq"
 )
 
 type MetricsParameters struct {
@@ -24,7 +24,7 @@ func beaconShortHistory(w http.ResponseWriter, req *http.Request) {
 		Since string
 	}{}
 	if err := decoder.Decode(&requestData); err != nil {
-		log.Println("Received invalid request")
+		log.Println("Received invalid request", err)
 		http.Error(w, "Invalid request", 400)
 		return
 	}
