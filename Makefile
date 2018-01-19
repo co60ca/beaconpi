@@ -16,7 +16,7 @@ clean:
 # Using go get to fetch any prequisite libraries
 .PHONY: reqs
 reqs:
-	@go get github.com/lib/pq
+	@go get .
 
 build/beaconserv:
 	$(SERVERENV) \
