@@ -77,7 +77,7 @@ func dbGetIDForBeacons(pack *BeaconLogPacket, db *sql.DB) ([]int, error) {
 		var tempid int
 		err := db.QueryRow(`
 			select id
-			from beacon_list
+			from ibeacons
 			where uuid = $1`, b.Uuid.String()).Scan(&tempid)
 		if err != nil {
 			return []int{}, errors.New("Failed while scanning beacon ids: " + err.Error())
@@ -92,10 +92,10 @@ func dbGetBeacons(db *sql.DB) ([]BeaconData, error) {
 
 	rows, err := db.Query(`
 		select uuid, major, minor
-		from beacon_list
+		from ibeacons
 	`)
 	if err != nil {
-		return rval, errors.New("Failed while executing beacon_list query:" + err.Error())
+		return rval, errors.New("Failed while executing ibeacons query:" + err.Error())
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -105,7 +105,7 @@ func dbGetBeacons(db *sql.DB) ([]BeaconData, error) {
 			minor uint16
 		)
 		if err := rows.Scan(&uuid, &major, &minor); err != nil {
-			return rval, errors.New("Failed while scanning beacon_list: " + err.Error())
+			return rval, errors.New("Failed while scanning ibeacons: " + err.Error())
 		}
 		uuid = strings.Replace(uuid, "-", "", -1)
 		hexb, err := hex.DecodeString(uuid)

@@ -1,12 +1,18 @@
 package beaconpi
 
 import (
+	"math"
+	"sort"
 	"net/http"
 	"log"
 	"encoding/json"
 	"time"
 	"github.com/lib/pq"
 	"github.com/co60ca/trilateration"
+)
+
+const (
+	SIGNAL_PROP_CONSTANT = 2
 )
 
 type MetricsParameters struct {
@@ -17,9 +23,9 @@ type MetricsParameters struct {
 
 type locationResults struct {
   Bracket time.Time
-  Beacon int
+	Loc []float64
   Edge []int
-  Distance []int
+  Distance []float64
   Confidence int
 }
 
@@ -31,6 +37,41 @@ type result struct {
 }
 
 var mp MetricsParameters
+
+func getDBMForBeacon(beacon int) (int, error) {
+	dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
+	db, err := dbconfig.openDB()
+	if err != nil {
+		return 0, err
+	}
+	var rxpow int
+	err = db.QueryRow(`
+		select txpower
+		from ibeacons
+		where id = ?`, beacon).Scan(&rxpow)
+	if err != nil {
+		return 0, err
+	}
+	return rxpow, nil
+}
+
+// Used for sorting edge/edge location by id
+type sortableedge struct {
+	edges []int
+	locs [][]float64
+}
+func (s sortableedge) Len() int {
+	return len(s.edges)
+}
+func (s sortableedge) Less(i, j int) bool {
+	return s.edges[i] < s.edges[j]
+}
+func (s sortableedge) Swap(i, j int) {
+	// Swap edges
+	s.edges[i], s.edges[j] = s.edges[j], s.edges[i]
+	// Swap locs
+	s.locs[i], s.locs[j] = s.locs[j], s.locs[i]
+}
 
 
 func beaconTrilateration(w http.ResponseWriter, req *http.Request) {
@@ -53,6 +94,13 @@ func beaconTrilateration(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Invalid request", 400)
 		return
 	}
+
+	sortedges := sortableedge{
+		requestData.Edges,
+		requestData.EdgeLocations,
+	}
+	sort.Sort(sortedges)
+
 	dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
 	db, err := dbconfig.openDB()
 	if err != nil {
@@ -88,7 +136,6 @@ func beaconTrilateration(w http.ResponseWriter, req *http.Request) {
 		results = append(results, row)
 	}
 
-  // TODO(mae) filter
   switch requestData.Filter {
     case "average":
       results = filterAverage(results)
@@ -97,9 +144,17 @@ func beaconTrilateration(w http.ResponseWriter, req *http.Request) {
       http.Error(w, "Invalid request", 400)
       return
   }
-	//TODO(mae) dbm
-	// TODO(mae) replace 0x0 with dbm
-  trilatresults := trilat(results, requestData.EdgeLocations, 0x0)
+
+	// Resort incase filtering has changed sorting order
+
+	power, err := getDBMForBeacon(requestData.Beacon)
+	if err != nil {
+		log.Println("Error fetching beacon power by id", err)
+		http.Error(w, "Server failure", 500)
+		return
+	}
+
+  trilatresults := trilat(results, requestData.EdgeLocations, power)
 
 	encoder := json.NewEncoder(w)
 	if err = encoder.Encode(trilatresults); err != nil{
@@ -168,10 +223,61 @@ func beaconShortHistory(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// Trilateration assumes that the
+func trilatCollect(tempresults []result, edgeloc [][]float64, dbm int) locationResults {
+	var task trilateration.Parameters3 
+	copy(task.Loc[0][:], edgeloc[0][:])
+	copy(task.Loc[1][:], edgeloc[1][:])
+	copy(task.Loc[2][:], edgeloc[2][:])
+	var edges []int
+	var distances []float64
+
+	for i, r := range tempresults {
+		dist := math.Pow(10, float64(dbm - r.Rssi) / float64(10 * SIGNAL_PROP_CONSTANT))
+		task.Dis[i] = dist
+		edges = append(edges, r.Edge)
+		distances = append(distances, dist)
+	}
+	loc, conf := task.SolveTrilat3()
+	return locationResults{
+		Bracket: tempresults[0].Bracket,
+		Loc: loc,
+		Edge: edges,
+		Distance: distances,
+		Confidence: conf,
+	}
+}
+
 func trilat(results []result, edgeloc [][]float64, dbm int) []locationResults {
+	var output []locationResults
+	// Sort such that the time brackets are in order and the edge nodes
+	// thereafter, this should ensure the edgeloc slice is also in
+	// the correct order.
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Bracket.Before(results[j].Bracket) && results[i].Edge < results[j].Edge
+	})
+	var tempresults []result
+	donext := false
+	currtime := results[0].Bracket
+	for i := 0; i < len(results); i++ {
+		if results[i].Bracket.Equal(currtime) {
+			// Add to current set
+			tempresults = append(tempresults, results[i])
+		} else {
+			donext = true
+		}
+		if donext || i == len(results) - 1 {
+			// Do trilat for this tempresults set
+			tempLocResults := trilatCollect(tempresults, edgeloc, dbm)
+			output = append(output, tempLocResults)
+			// New tempresults, for the last loop it wont matter
+			tempresults = nil
+			// Add the one that was skipped for this round into the next set
+			tempresults = append(tempresults, results[i])
+		}
+	}
+	log.Printf("results %#v\n", results)
 	// TODO(mae)
-	return nil
+	return output
 }
 
 func filterAverage(results []result) []result {
@@ -211,6 +317,7 @@ func filterAverage(results []result) []result {
 	for i, _ := range out {
 		out[i].Rssi /= counts[i]
 	}
+		
 	return out
 }
 
