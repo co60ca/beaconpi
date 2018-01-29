@@ -210,7 +210,7 @@ func beaconShortHistory(w http.ResponseWriter, req *http.Request) {
 	var results []result
 
 	for rows.Next() {
-		var row Result
+		var row result
 		var date time.Time
 		if err = rows.Scan(&date, &row.Edge, &row.Rssi); err != nil {
 			log.Println("Error scanning rows", err)
