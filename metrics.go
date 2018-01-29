@@ -7,8 +7,10 @@ import (
 	"log"
 	"encoding/json"
 	"time"
+	_ "github.com/lib/pq"
 	"github.com/lib/pq"
 	"github.com/co60ca/trilateration"
+	"github.com/rs/cors"
 )
 
 const (
@@ -16,14 +18,14 @@ const (
 )
 
 type MetricsParameters struct {
-	Port string	
+	Port string
 	DriverName string
 	DataSourceName string
 }
 
 type locationResults struct {
   Bracket time.Time
-	Loc []float64
+  Loc []float64
   Edge []int
   Distance []float64
   Confidence int
@@ -183,9 +185,11 @@ func beaconShortHistory(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Server failure", 500)
 		return
 	}
+	defer db.Close()
 	rows, err := db.Query(`
 		select datetime, edgenodeid, rssi
-		where edgenodeid in ($1) 
+		from beacon_log
+		where edgenodeid = any($1::int[]) 
 		and beaconid = $2 
 		and datetime > $3
 		order by datetime
@@ -198,7 +202,7 @@ func beaconShortHistory(w http.ResponseWriter, req *http.Request) {
 	defer rows.Close()
 
 	type result struct {
-		Datetime time.Time
+		Datetime string
 		Edge int
 		Rssi int
 	}
@@ -206,12 +210,14 @@ func beaconShortHistory(w http.ResponseWriter, req *http.Request) {
 	var results []result
 
 	for rows.Next() {
-		var row result
-		if err = rows.Scan(&row.Datetime, &row.Edge, &row.Rssi); err != nil {
+		var row Result
+		var date time.Time
+		if err = rows.Scan(&date, &row.Edge, &row.Rssi); err != nil {
 			log.Println("Error scanning rows", err)
 			http.Error(w, "Server failure", 500)
 			return
 		}
+		row.Datetime = date.Format("2006-01-02T15:04:05")
 		results = append(results, row)
 	}
 
@@ -224,7 +230,7 @@ func beaconShortHistory(w http.ResponseWriter, req *http.Request) {
 }
 
 func trilatCollect(tempresults []result, edgeloc [][]float64, dbm int) locationResults {
-	var task trilateration.Parameters3 
+	var task trilateration.Parameters3
 	copy(task.Loc[0][:], edgeloc[0][:])
 	copy(task.Loc[1][:], edgeloc[1][:])
 	copy(task.Loc[2][:], edgeloc[2][:])
@@ -317,11 +323,14 @@ func filterAverage(results []result) []result {
 	for i, _ := range out {
 		out[i].Rssi /= counts[i]
 	}
-		
 	return out
 }
 
 func MetricStart(metrics *MetricsParameters) {
-	http.HandleFunc("/history/short", beaconShortHistory)
-	log.Fatal(http.ListenAndServe(":" + metrics.Port, nil))
+	mp = *metrics
+	mux := http.NewServeMux()
+	mux.HandleFunc("/history/short", beaconShortHistory)
+
+	handler := cors.Default().Handler(mux)
+	log.Fatal(http.ListenAndServe(":" + metrics.Port, handler))
 }
