@@ -5,7 +5,9 @@ import (
 	"log"
 	"encoding/json"
 	"time"
+	_ "github.com/lib/pq"
 	"github.com/lib/pq"
+	"github.com/rs/cors"
 )
 
 type MetricsParameters struct {
@@ -24,7 +26,7 @@ func beaconShortHistory(w http.ResponseWriter, req *http.Request) {
 		Since string
 	}{}
 	if err := decoder.Decode(&requestData); err != nil {
-		log.Println("Received invalid request")
+		log.Println("Received invalid request", err)
 		http.Error(w, "Invalid request", 400)
 		return
 	}
@@ -35,9 +37,11 @@ func beaconShortHistory(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Server failure", 500)
 		return
 	}
+	defer db.Close()
 	rows, err := db.Query(`
 		select datetime, edgenodeid, rssi
-		where edgenodeid in ($1) 
+		from beacon_log
+		where edgenodeid = any($1::int[]) 
 		and beaconid = $2 
 		and datetime > $3
 		order by datetime
@@ -50,7 +54,7 @@ func beaconShortHistory(w http.ResponseWriter, req *http.Request) {
 	defer rows.Close()
 
 	type Result struct {
-		Datetime time.Time
+		Datetime string
 		Edge int
 		Rssi int
 	}
@@ -59,11 +63,13 @@ func beaconShortHistory(w http.ResponseWriter, req *http.Request) {
 
 	for rows.Next() {
 		var row Result
-		if err = rows.Scan(&row.Datetime, &row.Edge, &row.Rssi); err != nil {
+		var date time.Time
+		if err = rows.Scan(&date, &row.Edge, &row.Rssi); err != nil {
 			log.Println("Error scanning rows", err)
 			http.Error(w, "Server failure", 500)
 			return
 		}
+		row.Datetime = date.Format("2006-01-02T15:04:05")
 		results = append(results, row)
 	}
 
@@ -76,6 +82,10 @@ func beaconShortHistory(w http.ResponseWriter, req *http.Request) {
 }
 
 func MetricStart(metrics *MetricsParameters) {
-	http.HandleFunc("/history/short", beaconShortHistory)
-	log.Fatal(http.ListenAndServe(":" + metrics.Port, nil))
+	mp = *metrics
+	mux := http.NewServeMux()
+	mux.HandleFunc("/history/short", beaconShortHistory)
+
+	handler := cors.Default().Handler(mux)
+	log.Fatal(http.ListenAndServe(":" + metrics.Port, handler))
 }
