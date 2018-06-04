@@ -1,0 +1,15 @@
+FROM golang:latest
+RUN go get -d -v github.com/co60ca/beaconpi
+WORKDIR /go/src/github.com/co60ca/beaconpi
+RUN git checkout dev
+RUN go get -d .
+RUN CGO_ENABLED=0 go build -o beaconserv.out ./beaconserv
+
+FROM alpine
+WORKDIR /
+COPY --from=0 /go/src/github.com/co60ca/beaconpi/beaconserv.out beaconserv
+
+COPY server.key serv.key
+COPY server.crt server.crt
+CMD ["/beaconserv", "--serv-cert=server.crt", "--serv-key=serv.key", "--db-driver-name=postgres", "--db-datasource-name=\"user=postgres password=beaconsecret dbname=beacons sslmode=disable host=beaconpi-db\""]
+

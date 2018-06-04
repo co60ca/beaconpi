@@ -1,16 +1,16 @@
 // Beacon Pi, a edge node system for iBeacons and Edge nodes made of Pi
 // Copyright (C) 2017  Maeve Kennedy
-// 
+//
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
@@ -20,18 +20,18 @@ package beaconpi
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
-	"time"
 	"strconv"
-	"encoding/hex"
+	"time"
 )
 
 const (
-	DEFAULT_PORT = "32969"
-	MAX_BEACONS  = 256
-	MAX_LOGS     = 256
-	MAX_CTRL		 = 65535
+	DEFAULT_PORT    = "32969"
+	MAX_BEACONS     = 256
+	MAX_LOGS        = 256
+	MAX_CTRL        = 65535
 	CURRENT_VERSION = 0
 )
 
@@ -51,7 +51,7 @@ type BeaconLog struct {
 }
 
 type BeaconData struct {
-	Uuid  Uuid
+	Uuid  Uuid `json:"string"`
 	Major uint16
 	Minor uint16
 }
@@ -61,36 +61,35 @@ func (b *BeaconData) String() string {
 }
 
 const (
-  VERSION_MASK = 0x0F
-  RESPONSE_INVALID = 0x10
-	RESPONSE_OK = 0x20
-  RESPONSE_TOOMANY = 0x40
-  RESPONSE_RESTART = 0x80
-  RESPONSE_SHUTDOWN = 0x100
-  RESPONSE_UPDATE = 0x200
-	RESPONSE_BEACON_UPDATES = 0x400
+	VERSION_MASK              = 0x0F
+	RESPONSE_INVALID          = 0x10
+	RESPONSE_OK               = 0x20
+	RESPONSE_TOOMANY          = 0x40
+	RESPONSE_RESTART          = 0x80
+	RESPONSE_SHUTDOWN         = 0x100
+	RESPONSE_UPDATE           = 0x200
+	RESPONSE_BEACON_UPDATES   = 0x400
 	RESPONSE_INTERNAL_FAILURE = 0x800
-  RESPONSE_SYSTEM = 0x8000
+	RESPONSE_SYSTEM           = 0x8000
 	// Requests have only 0xF0 to work with for flags
-	REQUEST_BEACON_UPDATES = 0x10
-	REQUEST_CONTROL_LOG = 0x20
+	REQUEST_BEACON_UPDATES   = 0x10
+	REQUEST_CONTROL_LOG      = 0x20
 	REQUEST_CONTROL_COMPLETE = 0x40
 )
-
 
 type BeaconLogPacket struct {
 	Flags uint8
 	// Sender uuid
-	Uuid    Uuid
-	Logs    []BeaconLog
-	Beacons []BeaconData
-	ControlData		string
+	Uuid        Uuid
+	Logs        []BeaconLog
+	Beacons     []BeaconData
+	ControlData string
 }
 
 type BeaconResponsePacket struct {
-  Flags uint16
-  //LengthData uint32
-  Data string
+	Flags uint16
+	//LengthData uint32
+	Data string
 }
 
 func (b *BeaconLog) MarshalBinary() ([]byte, error) {
@@ -218,7 +217,7 @@ func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
 	}
 	pointer += 1
 	// Check for version 1
-	if b.Flags & VERSION_MASK != CURRENT_VERSION {
+	if b.Flags&VERSION_MASK != CURRENT_VERSION {
 		return errors.New("This version of the library only supports version 0" +
 			" of the protocol, a higher version was presented")
 	}
@@ -273,44 +272,44 @@ func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
 			return fmt.Errorf("Error occured while parsing log data: %s", err)
 		}
 	}
-	b.ControlData = string(data[pointer:pointer+int(ncontrol)])
+	b.ControlData = string(data[pointer : pointer+int(ncontrol)])
 	return nil
 }
 
 func (b *BeaconResponsePacket) MarshalBinary() ([]byte, error) {
-  bb := new(bytes.Buffer)
-  if len(b.Data) > (1 << 30) {
-    return []byte{}, errors.New("Data field is too long " + strconv.Itoa(len(b.Data)))
-  }
-  reqlen := len(b.Data) + 2 + 4
-  resp := make([]byte, reqlen)
-  littleEndianEncode(bb, b.Flags)
-  copy(resp[0:2], bb.Bytes()[0:2])
-  littleEndianEncode(bb, uint32(len(b.Data)))
-  copy(resp[2:6], bb.Bytes()[0:4])
-  copy(resp[6:], []byte(b.Data))
+	bb := new(bytes.Buffer)
+	if len(b.Data) > (1 << 30) {
+		return []byte{}, errors.New("Data field is too long " + strconv.Itoa(len(b.Data)))
+	}
+	reqlen := len(b.Data) + 2 + 4
+	resp := make([]byte, reqlen)
+	littleEndianEncode(bb, b.Flags)
+	copy(resp[0:2], bb.Bytes()[0:2])
+	littleEndianEncode(bb, uint32(len(b.Data)))
+	copy(resp[2:6], bb.Bytes()[0:4])
+	copy(resp[6:], []byte(b.Data))
 
-  return resp, nil
+	return resp, nil
 }
 
 func (b *BeaconResponsePacket) UnmarshalBinary(d []byte) error {
-  if len(d) < 6 {
-    return errors.New("Response packet is minimum 6 bytes")
-  }
-  if err := littleEndianDecode(d[0:2], &b.Flags); err != nil {
-    return err
-  }
-  if b.Flags & VERSION_MASK != CURRENT_VERSION {
-    return errors.New("Version of packet is too new, we only support version <= 0")
-  }
+	if len(d) < 6 {
+		return errors.New("Response packet is minimum 6 bytes")
+	}
+	if err := littleEndianDecode(d[0:2], &b.Flags); err != nil {
+		return err
+	}
+	if b.Flags&VERSION_MASK != CURRENT_VERSION {
+		return errors.New("Version of packet is too new, we only support version <= 0")
+	}
 
-  var dl uint32
-  if err := littleEndianDecode(d[2:6], &dl); err != nil {
-    return err
-  }
-  if len(d) < int(dl) + 6 {
-    return errors.New("Response packet is too short given data")
-  }
+	var dl uint32
+	if err := littleEndianDecode(d[2:6], &dl); err != nil {
+		return err
+	}
+	if len(d) < int(dl)+6 {
+		return errors.New("Response packet is too short given data")
+	}
 	b.Data = string(d[6:])
 	return nil
 }

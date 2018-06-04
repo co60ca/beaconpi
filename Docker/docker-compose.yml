@@ -1,0 +1,21 @@
+version: '2.0'
+services:
+    beaconpi-db:
+        build:
+                context: .
+                dockerfile: Dockerfile.postgres
+        environment:
+                POSTGRES_DB: beacons
+                POSTGRES_PASSWORD: beaconsecret
+    beaconpi-beaconserv:
+        build: 
+                context: .
+                dockerfile: ./Dockerfile.beaconserv
+        ports:
+            - "32969:32969"
+    beaconpi-metricsserv:
+        build: 
+                context: .
+                dockerfile: ./Dockerfile.metricsserv
+        ports:
+            - "32080:80"

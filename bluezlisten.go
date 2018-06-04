@@ -1,16 +1,16 @@
 // Beacon Pi, a edge node system for iBeacons and Edge nodes made of Pi
 // Copyright (C) 2017  Maeve Kennedy
-// 
+//
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
@@ -19,13 +19,13 @@
 package beaconpi
 
 import (
-	"fmt"
-	"os/exec"
-	"log"
 	"bufio"
 	"bytes"
-	"encoding/hex"
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
+	"log"
+	"os/exec"
 	"time"
 )
 
@@ -39,7 +39,7 @@ func ProduceBLEAdv(bleadv chan *bytes.Buffer) {
 	log.Println("Starting hcidump")
 	hcidump := exec.Command("hcidump", "--raw")
 	read, err := hcidump.StdoutPipe()
-	if err :=	hcidump.Start(); err != nil {
+	if err := hcidump.Start(); err != nil {
 		log.Printf("Error starting hcidump: %s", err)
 		return
 	}
@@ -78,8 +78,8 @@ func ProduceBLEAdv(bleadv chan *bytes.Buffer) {
 
 type BeaconRecord struct {
 	BeaconData
-	Datetime    time.Time
-	Rssi        int16
+	Datetime time.Time
+	Rssi     int16
 }
 
 func ProcessIBeacons(client *clientinfo, brs chan BeaconRecord) {
@@ -93,23 +93,13 @@ func ProcessIBeacons(client *clientinfo, brs chan BeaconRecord) {
 		if index == -1 {
 			continue
 		}
-		buffer = buffer[index+4:]
+		buffer = buffer[index+4:] // There is one byte we wanna skip
 		if len(buffer) < 22 {
 			log.Println("Buffer was not long enough for", buffer)
 			continue
 		}
 		var beaconRecord BeaconRecord
 		copy(beaconRecord.Uuid[:], buffer[:16])
-		{
-			client.Lock()
-			uid := fmt.Sprintf("%s,%d,%d", beaconRecord.Uuid.String(), beaconRecord.Major, beaconRecord.Minor)
-			if _, ok := client.nodes[uid]; !ok {
-				client.Unlock()
-				continue
-			}
-			client.Unlock()
-		}
-
 		buffer = buffer[16:]
 		reader := bytes.NewReader(buffer)
 		if err := binary.Read(reader, binary.BigEndian, &beaconRecord.Major); err != nil {
@@ -120,8 +110,19 @@ func ProcessIBeacons(client *clientinfo, brs chan BeaconRecord) {
 			log.Printf("Failed to parse Minor: %s", err)
 			continue
 		}
+
+		{
+			client.Lock()
+			uid := fmt.Sprintf("%s,%d,%d", beaconRecord.Uuid.String(), beaconRecord.Major, beaconRecord.Minor)
+			if _, ok := client.nodes[uid]; !ok {
+				client.Unlock()
+				continue
+			}
+			client.Unlock()
+		}
+
 		var rssi int8
-		// NOTE: we throw away the 21st bit
+		// NOTE: we throw away the 21st bit, which is the send power
 		binary.Read(reader, binary.BigEndian, &rssi);
 		// Read the real RSSI
 		if err := binary.Read(reader, binary.BigEndian, &rssi); err != nil {

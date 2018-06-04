@@ -1,0 +1,7 @@
+from alpine/git
+WORKDIR /
+RUN git clone https://github.com/co60ca/beaconpi.git
+
+from postgres:latest
+COPY --from=0 beaconpi/etc/db/*.sql /docker-entrypoint-initdb.d/
+

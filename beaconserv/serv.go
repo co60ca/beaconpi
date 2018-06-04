@@ -19,10 +19,12 @@ package main
 
 import (
 	"github.com/co60ca/beaconpi"
+	"log"
 )
 
 func main() {
 	config := beaconpi.GetFlags()
+	log.Printf("Config: %#v", config)
 	beaconpi.StartServer(config.X509cert, config.X509key,
 			config.Drivername, config.DSN, nil)
 }

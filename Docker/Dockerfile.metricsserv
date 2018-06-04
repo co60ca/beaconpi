@@ -1,0 +1,13 @@
+FROM golang:latest
+RUN go get -d -v github.com/co60ca/beaconpi
+WORKDIR /go/src/github.com/co60ca/beaconpi
+RUN git checkout dev
+RUN go get -d .
+RUN CGO_ENABLED=0 go build -o metricsserv.out ./metricsserv
+
+FROM alpine
+WORKDIR /
+COPY --from=0 /go/src/github.com/co60ca/beaconpi/metricsserv.out metricsserv
+
+CMD ["/metricsserv", "--db-driver-name=postgres", "--db-datasource-name=\"user=postgres password=beaconsecret dbname=beacons sslmode=disable host=beaconpi-db\"", "--port=80"]
+

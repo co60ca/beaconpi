@@ -1,34 +1,30 @@
 -- Tables
-drop index if exists beacon_list_uuid_index;
-drop table if exists beacon_list cascade;
-create table beacon_list (
+create table ibeacons (
   id serial primary key,
   label varchar(40) not null,
   uuid uuid not null,
   major integer not null,
-  minor integer not null
+  minor integer not null,
+  txpower integer not null default -70,
 );
-create unique index beacon_list_uuid_index on beacon_list(uuid);
 
-drop index if exists edge_node_uuid_index;
-drop table if exists edge_node cascade;
 create table edge_node (
   id serial primary key,
   uuid uuid not null,
   title varchar(60) not null,
   room text not null,
   location text not null,
-  description text
+  description text,
+  bias real not null default -50.0,
+  gamma real not null default 2.5,
+  lastupdate timestamp with time zone default current_timestamp,
+  unique(uuid)
 );
-create unique index edge_node_uuid_index on edge_node(uuid);
 
-drop index if exists beacon_log_datetime;
-drop index if exists beacon_log_beaconid;
-drop index if exists beacon_log_edgenodeid;
-drop table if exists beacon_log cascade;
 create table beacon_log (
-  datetime timestamp not null default current_timestamp,
-  beaconid integer not null references beacon_list,
+  id serial primary key,
+  datetime timestamp with time zone not null default current_timestamp,
+  beaconid integer not null references ibeacons,
   edgenodeid integer not null references edge_node,
   rssi integer not null
 );
@@ -36,22 +32,18 @@ create index beacon_log_datetime on beacon_log(datetime);
 create index beacon_log_beaconid on beacon_log(beaconid);
 create index beacon_log_edgenodeid on beacon_log(edgenodeid);
 
-drop index if exists control_commands_edgenodeid;
-drop table if exists control_commands cascade;
 create table control_commands (
   id serial primary key,
-  datetime timestamp not null default current_timestamp,
+  datetime timestamp with time zone not null default current_timestamp,
   completed boolean not null default FALSE,
   edgenodeid integer not null references edge_node,
   data text
 );
 create index control_commands_edgenodeid on control_commands(edgenodeid);
 
-drop index if exists control_log_edgenodeid;
-drop index if exists control_log_controlid;
-drop table if exists control_log cascade;
 create table control_log (
-  datetime timestamp not null default current_timestamp,
+  id serial primary key,
+  datetime timestamp with time zone not null default current_timestamp,
   edgenodeid integer not null references edge_node,
   controlid integer references control_commands,
   data text
@@ -67,7 +59,7 @@ begin
   for i in 1..count loop
     uuidgen := uuid_in(md5(random()::text || now()::text)::cstring);
     uuidgen := substring(uuidgen, 0, 15) || '4' || substring(uuidgen, 16, char_length(uuidgen));
-    insert into beacon_list (label, uuid, major, minor)
+    insert into ibeacons (label, uuid, major, minor)
             values ('Label-' || md5(random()::text),
                     cast (uuidgen as uuid),
                     0,
@@ -99,7 +91,7 @@ declare
   node record;
   temprcount integer;
 begin
-  for beacon in select id from beacon_list loop
+  for beacon in select id from ibeacons loop
     for node in select id from edge_node loop
       temprcount := round(random()*count/2 + count*0.5);
       for i in 1..temprcount loop

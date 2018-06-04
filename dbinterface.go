@@ -1,16 +1,16 @@
 // Beacon Pi, a edge node system for iBeacons and Edge nodes made of Pi
 // Copyright (C) 2017  Maeve Kennedy
-// 
+//
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
@@ -19,17 +19,17 @@ package beaconpi
 
 import (
 	"database/sql"
-	_ "github.com/lib/pq"
-	"errors"
-	"time"
-	"log"
 	"encoding/hex"
-	"strings"
+	"errors"
+	_ "github.com/lib/pq"
+	log "github.com/sirupsen/logrus"
 	"strconv"
+	"strings"
+	"time"
 )
 
 type dbHandler struct {
-	Drivername string
+	Drivername     string
 	DataSourceName string
 }
 
@@ -45,7 +45,7 @@ func dbAddLogsForBeacons(pack *BeaconLogPacket, edgeid int, db *sql.DB) error {
 
 	data := make([]struct {
 		Datetime time.Time
-		Rssi int
+		Rssi     int
 		Beaconid int
 	}, len(pack.Logs))
 	for i, logv := range pack.Logs {
@@ -54,20 +54,21 @@ func dbAddLogsForBeacons(pack *BeaconLogPacket, edgeid int, db *sql.DB) error {
 		// TODO(mae) additional error logging here for ids that don't exist
 		data[i].Beaconid = beaconids[logv.BeaconIndex]
 	}
-	log.Printf("Inserting %d records", len(data))
 	for _, row := range data {
 		rows, err := db.Query(`
 			insert into beacon_log
 			(datetime, beaconid, edgenodeid, rssi)
 			VALUES
 			($1, $2, $3, $4)
-		`, row.Datetime, row.Beaconid, edgeid, row.Rssi)
+		`, row.Datetime.UTC(), row.Beaconid, edgeid, row.Rssi)
 		if err != nil {
 			return errors.New("Failed to insert into DB: " + err.Error())
 		}
 		rows.Close()
 	}
-	log.Printf("Completed inserting %d records", len(data))
+	if len(data) != 0 {
+		log.Printf("Completed inserting %d records", len(data))
+	}
 	return nil
 }
 
@@ -100,7 +101,7 @@ func dbGetBeacons(db *sql.DB) ([]BeaconData, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var (
-			uuid string
+			uuid  string
 			major uint16
 			minor uint16
 		)
@@ -110,7 +111,7 @@ func dbGetBeacons(db *sql.DB) ([]BeaconData, error) {
 		uuid = strings.Replace(uuid, "-", "", -1)
 		hexb, err := hex.DecodeString(uuid)
 		if err != nil {
-			return rval, errors.New("Failed while decoding hex: " +  err.Error())
+			return rval, errors.New("Failed while decoding hex: " + err.Error())
 		}
 		bdtemp := BeaconData{Major: major, Minor: minor}
 		copy(bdtemp.Uuid[:], hexb[:16])
@@ -123,7 +124,7 @@ func dbInsertControlLog(edgenodeid int, packet *BeaconLogPacket, db *sql.DB) err
 	rows, err := db.Query(`
 		insert into control_log (edgenodeid, data)
 		values ($1, $2)
-	`, edgenodeid, packet.ControlData);
+	`, edgenodeid, packet.ControlData)
 	if err != nil {
 		return errors.New("Failed to insert control log: " + err.Error())
 	}
@@ -183,7 +184,15 @@ func dbGetControl(packet *BeaconLogPacket, db *sql.DB) (string, error) {
 	if err != nil {
 		return "", errors.New("Failed to get control because: " + err.Error())
 	}
-	return strconv.Itoa(id) + "\n" + data , nil
+	return strconv.Itoa(id) + "\n" + data, nil
+}
+
+func updateEdgeLastUpdate(uuid Uuid, db *sql.DB) {
+	_, err := db.Exec(`update edge_node set lastupdate = current_timestamp
+			where uuid = $1`, uuid.String())
+	if err != nil {
+		log.Infof("Failed to update edge_node lastupdate to current_timestamp %s", err)
+	}
 }
 
 // Returns the ID of the edge

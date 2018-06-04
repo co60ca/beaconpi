@@ -1,12 +1,12 @@
 package beaconpi
 
 import (
-	"testing"
+	"crypto/tls"
 	"io/ioutil"
 	"log"
-	"crypto/tls"
-	"time"
 	"os"
+	"testing"
+	"time"
 )
 
 func TestDB(t *testing.T) {
@@ -22,16 +22,16 @@ func TestDB(t *testing.T) {
 	channelend := make(chan struct{}, 1)
 	prog := "/mnt/storage/Source_Code/Projects/beacons"
 	config := ServerConfig{X509cert: prog + "/x509/server.crt",
-		X509key : prog + "/x509/server.key", Drivername: "postgres",
+		X509key: prog + "/x509/server.key", Drivername: "postgres",
 		DSN: "user=postgres password=notapassword dbname=beacons sslmode=disable"}
 	t.Log("Starting server")
 	go StartServer(config.X509cert, config.X509key,
-			config.Drivername, config.DSN, channelend)
+		config.Drivername, config.DSN, channelend)
 	time.Sleep(1 * time.Second)
 	channelend <- struct{}{} // End after one request
 
 	t.Log("Server started")
-	packet := BeaconLogPacket{Flags : REQUEST_BEACON_UPDATES}
+	packet := BeaconLogPacket{Flags: REQUEST_BEACON_UPDATES}
 	encpacket, _ := packet.MarshalBinary()
 	resbytes := sendBytes(encpacket)
 	t.Logf("%#v\n", resbytes)

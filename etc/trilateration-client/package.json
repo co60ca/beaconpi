@@ -13,8 +13,7 @@
   "dependencies": [
     "chart.js",
     "dateformat",
-    "fili",
-    "trilat"
+    "fili"
   ],
   "devDependencies": {
     "webpack": "^3.8.1"
