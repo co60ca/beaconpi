@@ -382,6 +382,8 @@ func MetricStart(metrics *MetricsParameters) {
 	mux.Handle("/history/short", wc.CheckCookie(cookieAction)(beaconShortHistory()))
 	mux.Handle("/history/trilateration", wc.CheckCookie(cookieAction)(beaconTrilateration()))
 
+	mux.Handle("/history/export", wc.CheckCookie(cookieAction)(getCSV()))
+
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{mp.AllowedOrigin},
 		AllowCredentials: true,

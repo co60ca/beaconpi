@@ -13,7 +13,7 @@ import (
 	"fmt"
 )
 
-func GetCSV() http.Handler {
+func getCSV() http.Handler {
 	return http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
 		input := struct{
 			Edges []int
