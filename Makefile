@@ -4,7 +4,7 @@ PACKAGE = github.com/co60ca/beaconpi
 SERVERFLAGS =
 CLIENTFLAGS = 
 SERVERENV = CGO=0
-CLIENTENV = GOARCH=arm64 GOOS=linux CGO=0
+CLIENTENV = GOARCH=arm GOOS=linux CGO=0
 
 ALLGO = *.go
 
