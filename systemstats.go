@@ -43,10 +43,9 @@ func quickStats() http.Handler {
 			Description string
 		}
 		var inactEdges []edges
-		rowsedge, err := db.Query(`select title, room, location, description 
-					from edge_node 
-					where lastupdate < current_timestamp - interval '00:10:00'
-				`)
+		rowsedge, err := db.Query(`
+			select * from inactive_edges()
+		`)
 		if err != nil {
 			log.Errorf("Failed while getting inactive edges %s", err)
 			http.Error(w, "Server failure", 500)
@@ -89,11 +88,7 @@ func quickStats() http.Handler {
 		}
 		var inactivebeacons []ibeacons
 		rows, err := db.Query(`
-			select label, uuid, major, minor from ibeacons 
-			where id not in (
-				select distinct i.beaconid from (
-					select beaconid, datetime from beacon_log where 
-						datetime < current_timestamp - interval '00:10:00' order by datetime desc) as i)
+			select * from inactive_beacons()
 		`)
 		defer rows.Close()
 		if err != nil {
