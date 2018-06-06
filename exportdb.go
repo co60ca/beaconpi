@@ -3,7 +3,6 @@ package beaconpi
 import (
 	"net/http"
 	log "github.com/sirupsen/logrus"
-	//"github.com/pkg/errors"
 	"encoding/json"
 	"time"
 	"github.com/lib/pq"
@@ -64,7 +63,7 @@ func getCSV() http.Handler {
 				return
 		}
 		defer db.Close()
-		
+
 		rows, err := db.Query(`
 			select datetime, beaconid, edgenodeid, rssi from beacon_log
 			where edgenodeid = any($1::int[]) and beaconid = any($2::int[])
@@ -109,9 +108,9 @@ func getCSV() http.Handler {
         http.Error(w, "Server failure", 500)
         return
 			}
-			if _, err = fmt.Fprintf(filecsv, 
-					"\"%v\"\t%d\t%d\t%d",
-					date.Format(time.RFC3339), beacon, edge, rssi); err != nil {
+			if _, err = fmt.Fprintf(filecsv,
+					"\"%v\"\t%d\t%d\t%d\n",
+					date.Format(time.RFC3339Nano), beacon, edge, rssi); err != nil {
 				log.Infof("Failure to write to file csv", err)
 				http.Error(w, "Server failure", 500)
 				return
@@ -124,14 +123,7 @@ func getCSV() http.Handler {
 				http.Error(w, "Server failure", 500)
 				return
 		}
-
-		var header http.Header
-		header.Add("Content-Type", "octet-stream")
-		if err = header.Write(w); err != nil {
-				log.Infof("Failed to write header", err)
-				http.Error(w, "Server failure", 500)
-				return
-		}
+		w.Header().Set("Content-Type", "octet-stream")
 		if _, err = io.Copy(w, filecsv); err != nil {
 			log.Infof("Failed to copy data to output", err)
 			http.Error(w, "Server failure", 500)
