@@ -1,8 +1,8 @@
 import dateFormat from 'dateformat';
-import Fili from 'fili';
+//import Fili from 'fili';
 import React, { Component } from 'react';
 import * as cfg from './config.js';
-import { Line, defaults } from 'react-chartjs-2';
+import { Line/*, defaults*/ } from 'react-chartjs-2';
 import colorscheme from 'color-scheme';
 
 class Plot extends Component {

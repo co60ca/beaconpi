@@ -69,6 +69,7 @@ func getCSV() http.Handler {
 			select datetime, beaconid, edgenodeid, rssi from beacon_log
 			where edgenodeid = any($1::int[]) and beaconid = any($2::int[])
 			and datetime < $3 and datetime > $4
+			order by datetime desc
 		`, pq.Array(input.Edges), pq.Array(input.Beacons), before, after)
 
 		if err != nil {
@@ -90,7 +91,7 @@ func getCSV() http.Handler {
 		}()
 
 		if _, err = fmt.Fprintf(filecsv, 
-				"\"datetime\"\t\"beacon\"\t\"edge\"\t\"rssi\""); err != nil {
+				"\"datetime\"\t\"beacon\"\t\"edge\"\t\"rssi\"\n"); err != nil {
 			log.Infof("Failure to write to file csv", err)
 			http.Error(w, "Server failure", 500)
 			return
