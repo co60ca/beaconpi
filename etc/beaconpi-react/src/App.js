@@ -22,7 +22,7 @@ class Home extends Component {
   render() {
     if (!this.props.loginData.loggedin) {
       return (
-        <Row> <Col md={4}>
+        <Row> <Col md={12}>
           <p> Welcome to Beaconpi, You're not logged in so we can't
           show you anything. Click login on the top in order to see some data.
           </p>
@@ -32,7 +32,7 @@ class Home extends Component {
     return (
       <div>
       <Row>
-        <Col md={4}>
+        <Col md={12}>
           <p>Welcome home {this.props.loginData.displayName}, here is the system
           status</p>
         </Col>
@@ -241,7 +241,7 @@ class App extends Component {
     switch (eid) {
       case 1: this.setState({view: "home"}); break;
       case 2: this.setState({view: "plot"}); break;
-      case 3: this.setState({view: "export"}); break;
+      case 4: this.setState({view: "export"}); break;
       case 20.1: this.setState({view: "usermod"}); break;
       case 20.2: this.setState({view: "modbeacon"}); break;
       case 20.3: this.setState({view: "modedge"}); break;

@@ -173,15 +173,16 @@ class ExportData extends Component {
   render() {
     var i = 0;
     var edgeEles = [
-      <option key={0} value={null}>Select at least one edge</option>
+      <option key={0} value={null}>Select at least one edge...</option>
     ];
     this.state.edgeList.forEach((v) => {
-      edgeEles.push(<option key={v.Id} value={i++}>{v.Title}</option>);
+      edgeEles.push(<option key={v.Id} value={i++}>{v.Title + 
+        "\t" + v.Room + "\t" + v.Location}</option>);
     });
 
     i = 0;
     var beaconEles = [
-      <option key={0} value={null}>Select at least one beacon</option>
+      <option key={0} value={null}>Select at least one beacon...</option>
     ];
     this.state.beaconList.forEach((v) => {
       beaconEles.push(<option key={v.Id} value={i++}>{v.Label}</option>);
@@ -190,6 +191,7 @@ class ExportData extends Component {
     return (
       <Row>
         <Col sm={12}>
+          <h4>Export data to a CSV file</h4>
           <form>
             <FormGroup controlId="formSelectEdge" onChange={this.onEdgeSelect}>
               <FormControl componentClass="select" 
@@ -216,7 +218,7 @@ class ExportData extends Component {
                 <DTPicker onChange={this.changeBefore}/>
               </Col>
             </Row>
-            <Button type="submit" disabled={
+            <Button type="submit" bsStyle={'success'} disabled={
               this.state.selectedEdge.length === 0 
               || this.state.selectedBeacon.length === 0
               || !this.state.before

@@ -535,7 +535,8 @@ class AdminModEdge extends Component {
     ];
     var i = 0;
     this.state.edgeList.forEach((v) => {
-      edgeEles.push(<option key={v.Id} value={i++}>{v.Title}</option>);
+      edgeEles.push(<option key={v.Id} value={i++}>{v.Title + 
+        "\t" + v.Room + "\t" + v.Location}</option>);
     });
     return (
       <Row>

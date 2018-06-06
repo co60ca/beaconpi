@@ -1,6 +1,8 @@
 import dateFormat from 'dateformat';
 //import Fili from 'fili';
 import React, { Component } from 'react';
+import { Row, Col, Button, FormGroup, FormControl,
+  Alert, ControlLabel } from 'react-bootstrap';
 import * as cfg from './config.js';
 import { Line/*, defaults*/ } from 'react-chartjs-2';
 import colorscheme from 'color-scheme';
@@ -26,9 +28,6 @@ function hexToRGB(hex, alpha) {
 class BeaconSeriesChart extends Component {
   constructor(props, context) {
     super(props, context);
-    this.edges = [1, 2, 3];
-    this.beacon = 1;
-    this.chart = null;
     this.distance = false;
     this.intervalGetData = null;
     this.getData = this.getData.bind(this);
@@ -52,13 +51,75 @@ class BeaconSeriesChart extends Component {
       message: "",
 
       chartdata: {datasets:[], labels:[]},
+      edges: [0, 1, 2],
+      beacon: 1,
       edgelist: [],
+      beaconlist: [],
       since: null,
       before: null,
 
       historysec: 2,
     }
+
+    this.onEdgeSelect = this.onEdgeSelect.bind(this);
+    this.onBeaconSelect = this.onBeaconSelect.bind(this);
   }
+
+
+
+  onEdgeSelect(e) {
+    var selected = Array.from(e.target.options)
+      .filter(option => option.selected && option.index !== 0)
+      .map(option => option.value);
+    this.setState({
+      edges: selected,
+    });
+  }
+
+  onBeaconSelect(e) {
+    this.setState({
+      beacon: this.state.beaconlist[e.target.value].Id,
+    });
+  }
+
+  updateSelection() {
+    var that = this;
+    fetch(cfg.app + "/config/alledges", {
+      method: 'POST',
+      credentials: 'include',
+    }).then((r) => r.json())
+    .then((rj) => {
+      that.setState({
+        edgelist: rj.Edges
+      })
+    })
+    .catch((error) => {
+      that.setState({
+        errortext: "Error receiving confirmation from server",
+        message: "",
+      });
+    });
+
+    fetch(cfg.app + "/config/allbeacons", {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+      },
+      credentials: 'include',
+    }).then((r) => r.json())
+    .then((rj) => {
+      that.setState({
+        beaconlist: rj.Beacons
+      })
+    })
+    .catch((error) => {
+      that.setState({
+        errortext: "Error receiving confirmation from server",
+        message: "",
+      });
+    });
+  }
+
 
   getData() {
     var before = new Date();
@@ -70,6 +131,10 @@ class BeaconSeriesChart extends Component {
 
 
     var that = this;
+    if (!this.state.edgelist) {
+      return;
+    }
+    var edges = this.state.edges.map(e => this.state.edgelist[e].Id);
     fetch(cfg.app + "/history/short", {
       method: 'POST',
       headers: {
@@ -78,8 +143,8 @@ class BeaconSeriesChart extends Component {
       },
       credentials: 'include',
       body: JSON.stringify({
-        Edges: that.edges,
-        Beacon: that.beacon,
+        Edges: edges,
+        Beacon: that.state.beacon,
         Since: after,
         Before: before,
       }),
@@ -89,13 +154,14 @@ class BeaconSeriesChart extends Component {
       var newdata = {labels: [], datasets: []};
       var scheme = new colorscheme();
       var colors = scheme.scheme('tetrade').variation('pastel').colors();
-      for (var i in that.edges) {
-        idToChartIndex.set(that.edges[i], i);
+      for (var i in that.state.edges) {
+        var thise = that.state.edgelist[that.state.edges[i]].Id;
+        idToChartIndex.set(thise, i);
         newdata.datasets.push({
-          label: 'Rssi ' + that.edges[i] + '',
+          label: 'Rssi ' + that.state.edgelist[that.state.edges[i]].Title + '',
           data: [],
-            backgroundColor: hexToRGB(colors[i%16], 0.2),
-            borderColor: hexToRGB(colors[i%16], 1),
+          backgroundColor: hexToRGB(colors[i%16], 0.2),
+          borderColor: hexToRGB(colors[i%16], 1),
         });
       }
 
@@ -115,7 +181,7 @@ class BeaconSeriesChart extends Component {
 
       for (i in rj) {
         var e = rj[i];
-        var first = that.edges[i];
+        var first = that.state.edgelist[that.state.edges[0]].Id;
         if (e.Edge === first) {
           newdata.labels.push(e.Datetime);
         }
@@ -126,47 +192,28 @@ class BeaconSeriesChart extends Component {
       if (newdata.labels.length > 50) {
         for (i in newdata.datasets) {
           var d = newdata.datasets[i].data;
-          while(d.length > 30) {
+          while(d.length > 20) {
             d.shift();
           }
         }
-        while(newdata.labels.length > 30) {
+        while(newdata.labels.length > 20) {
           newdata.labels.shift();
         }
       }
-      that.setState({chartdata: newdata});
-    })
-    .catch((error) => {
       that.setState({
-        error: "Error occured fetching data from server"
+        chartdata: newdata,
+        errortext: ""
       });
-    });
-  }
-
-  getEdgeList() {
-    var that = this;
-    fetch(cfg.app + "/config/alledges", {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-      },
-      credentials: 'include',
-    }).then((r) => r.json())
-    .then((rj) => {
-      that.setState({
-        edgelist: rj.Edges
-      })
     })
     .catch((error) => {
       that.setState({
-        errortext: "Error receiving confirmation from server",
-        message: "",
+        errortext: "Error occured fetching data from server"
       });
     });
   }
 
   componentDidMount() {
-    this.getEdgeList();
+    this.updateSelection();
     this.intervalGetData = setInterval(this.getData, 1000);
   }
 
@@ -177,8 +224,51 @@ class BeaconSeriesChart extends Component {
   }
 
   render() {
-    return <Line data={this.state.chartdata} 
-    width={600} height={400} options={this.lineoptions} />
+    var i = 0;
+    var edgeEles = [
+      <option key={0} value={null}>Select at least one edge...</option>
+    ];
+    this.state.edgelist.forEach((v) => {
+      edgeEles.push(<option key={v.Id} value={i++}>{v.Title + 
+        "\t" + v.Room + "\t" + v.Location}</option>);
+    });
+
+    i = 0;
+    var beaconEles = [
+      <option key={0} value={null}>Select a beacon</option>
+    ];
+    this.state.beaconlist.forEach((v) => {
+      beaconEles.push(<option key={v.Id} value={i++}>{v.Label}</option>);
+    });
+
+    return (
+      <Row>
+        <Col sm={12}>
+          {this.state.message !== "" && 
+            <Alert bsStyle="info">{this.state.message}</Alert>}
+          {this.state.errortext !== "" && 
+            <Alert bsStyle="danger">{this.state.errortext}</Alert>}
+          <Line data={this.state.chartdata} 
+              width={600} height={400} options={this.lineoptions} />
+          <form>
+            <FormGroup controlId="formSelectEdge" onChange={this.onEdgeSelect}>
+              <FormControl componentClass="select" 
+                  placeholder="select" multiple
+                  style={{height: "150px"}}>
+                {edgeEles}
+              </FormControl>
+            </FormGroup>
+            <FormGroup controlId="formSelectBeacon" 
+                onChange={this.onBeaconSelect}>
+              <FormControl componentClass="select" 
+                  placeholder="select">
+                {beaconEles}
+              </FormControl>
+            </FormGroup>
+          </form>
+        </Col>
+      </Row>
+    );
   }
 }
 
