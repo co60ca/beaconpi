@@ -15,8 +15,8 @@ class ExportData extends Component {
       beaconList: [],
       selectedEdge: [],
       selectedBeacon: [],
-      before: "",
-      after: "",
+      before: false,
+      after: false,
       errortext: "",
       message: "",
       submitted: false,
@@ -30,6 +30,18 @@ class ExportData extends Component {
   }
 
   doSubmit() {
+    var before = this.state.before;
+    var after = this.state.after;
+
+    if (!before || !after) {
+      this.setState({errortext: "Set both After and Before"});
+      return;
+    }
+
+    if (after.isAfter(before)) {
+      this.setState({errortext: "After must be before before"});
+      return;
+    }
     this.sendRequest({
       "Beacons": this.state.selectedBeacon.map(b => b.Id),
       "Edges": this.state.selectedEdge.map(e => e.Id),
@@ -41,14 +53,14 @@ class ExportData extends Component {
   changeAfter(e) {
     //this.after = e.format('YYYY-MM-DD[T]HH:mm:ss.SSSSSSSSSZ');
     this.setState({
-      after: e.format('YYYY-MM-DD[T]HH:mm:ssZ'),
+      after: e,
     });
   }
 
   changeBefore(e) {
     //this.before = e.format('YYYY-MM-DD[T]HH:mm:ss.SSSSSSSSSZ');
     this.setState({
-      before: e.format('YYYY-MM-DD[T]HH:mm:ssZ'),
+      before: e,
     });
   }
 
@@ -118,6 +130,11 @@ class ExportData extends Component {
       a.download = "" + (new Date()).toISOString().substr(0, 19) + "Z_beaconpi_export.csv";
       a.click();
       URL.revokeObjectURL(url);
+      that.setState({
+        submitted: false,
+        errortext: "",
+        message: "",
+      })
     })
     .catch((error) => {
       that.setState({
@@ -126,6 +143,10 @@ class ExportData extends Component {
         message: "",
       });
     });
+
+    this.setState({
+      submitted: true,
+    })
   }
 
   onEdgeSelect(e) {
@@ -198,9 +219,11 @@ class ExportData extends Component {
             <Button type="submit" disabled={
               this.state.selectedEdge.length === 0 
               || this.state.selectedBeacon.length === 0
-              || this.state.before === ""
-              || this.state.after === ""}
-              onClick={this.doSubmit}>Request CSV</Button>
+              || !this.state.before
+              || !this.state.after
+              || this.state.submitted}
+              onClick={this.doSubmit}>{this.state.submitted ? 
+                'Waiting...' : 'Request CSV'}</Button>
           </form>
           {this.state.message !== "" && 
             <Alert bsStyle="info">{this.state.message}</Alert>}

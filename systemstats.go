@@ -130,7 +130,8 @@ func GetBeacons() http.Handler {
 
 		rows, err := db.Query(`
 			select id, label, uuid, major, minor
-			from ibeacons`)
+			from ibeacons
+			order by label`)
 		if err != nil {
 				log.Infof("Failed while quering beacons %s", err)
 				http.Error(w, "Server failure", 500)
@@ -176,7 +177,8 @@ func GetEdges() http.Handler {
 
 		rows, err := db.Query(`
 			select id, uuid, title, room, location, description, bias, gamma
-			from edge_node`)
+			from edge_node
+			order by title`)
 		if err != nil {
 				log.Errorf("Failed while quering edges %s", err)
 				http.Error(w, "Server failure", 500)
