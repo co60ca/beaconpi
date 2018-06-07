@@ -11,6 +11,7 @@ import (
 	"sort"
 	"time"
 	"database/sql"
+	"strings"
 )
 
 type MetricsParameters struct {
@@ -356,6 +357,13 @@ func MetricStart(metrics *MetricsParameters) {
 
 	mux := http.NewServeMux()
 
+	// Logging
+	log.SetLevel(log.DebugLevel)
+	customFormatter := new(log.TextFormatter)
+	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
+	customFormatter.FullTimestamp = true
+	log.SetFormatter(customFormatter)
+
 	wa, err := webauth.OpenAuthDB(mp.DriverName, mp.DataSourceName)
 	if err != nil {
 		log.Fatalf("Failed to open DB for auth %s", err)
@@ -384,18 +392,14 @@ func MetricStart(metrics *MetricsParameters) {
 
 	mux.Handle("/history/export", wc.CheckCookie(cookieAction)(getCSV()))
 
+	origins := strings.Split(mp.AllowedOrigin, ",")
+	log.Infof("Allowed domains: %#v", origins)
 	c := cors.New(cors.Options{
-		AllowedOrigins: []string{mp.AllowedOrigin},
+		AllowedOrigins: origins,
 		AllowCredentials: true,
 	})
 	handler := c.Handler(mux)
 
-	// Logging
-	log.SetLevel(log.DebugLevel)
-	customFormatter := new(log.TextFormatter)
-	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
-	customFormatter.FullTimestamp = true
-	log.SetFormatter(customFormatter)
 	// Start
 	log.Infof("Starting metrics server on %v", metrics.Port)
 	log.Fatal(http.ListenAndServe(":"+metrics.Port, handler))
