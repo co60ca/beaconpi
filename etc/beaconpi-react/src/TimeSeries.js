@@ -1,8 +1,8 @@
 import dateFormat from 'dateformat';
 //import Fili from 'fili';
 import React, { Component } from 'react';
-import { Row, Col, Button, FormGroup, FormControl,
-  Alert, ControlLabel } from 'react-bootstrap';
+import { Row, Col, FormGroup, FormControl,
+  Alert, Table} from 'react-bootstrap';
 import * as cfg from './config.js';
 import { Line/*, defaults*/ } from 'react-chartjs-2';
 import colorscheme from 'color-scheme';
@@ -55,6 +55,7 @@ class BeaconSeriesChart extends Component {
       beacon: 1,
       edgelist: [],
       beaconlist: [],
+      meandata: [],
       since: null,
       before: null,
 
@@ -200,8 +201,10 @@ class BeaconSeriesChart extends Component {
           newdata.labels.shift();
         }
       }
+      var meandata = newdata.datasets.map(d => d.data.reduce((a, v) => a + v) / d.data.length);
       that.setState({
         chartdata: newdata,
+        meandata: meandata,
         errortext: ""
       });
     })
@@ -233,6 +236,15 @@ class BeaconSeriesChart extends Component {
         "\t" + v.Room + "\t" + v.Location}</option>);
     });
 
+    var means = [];
+    i = 0;
+    if (this.state.meandata.length === this.state.edges.length) {
+      this.state.edges.forEach(m => {
+        means.push(<tr><td>{this.state.edgelist[m].Title}</td>
+          <td>{this.state.meandata[i++]}</td></tr>);
+      });
+    }
+
     i = 0;
     var beaconEles = [
       <option key={0} value={null}>Select a beacon</option>
@@ -250,6 +262,10 @@ class BeaconSeriesChart extends Component {
             <Alert bsStyle="danger">{this.state.errortext}</Alert>}
           <Line data={this.state.chartdata} 
               width={600} height={400} options={this.lineoptions} />
+          <Table>
+            <thead><tr><td>Edge</td><td>Average RSSI</td></tr></thead>
+            <tbody>{means}</tbody>
+          </Table>
           <form>
             <FormGroup controlId="formSelectEdge" onChange={this.onEdgeSelect}>
               <FormControl componentClass="select" 

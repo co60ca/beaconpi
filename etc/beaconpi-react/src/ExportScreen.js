@@ -209,11 +209,11 @@ class ExportData extends Component {
               </FormControl>
             </FormGroup>
             <Row>
-              <Col sm={12} md={6}>
+              <Col sm={6}>
                 <ControlLabel>After</ControlLabel>
                 <DTPicker onChange={this.changeAfter}/>
               </Col>
-              <Col sm={12} md={6}>
+              <Col sm={6}>
                 <ControlLabel>Before</ControlLabel>
                 <DTPicker onChange={this.changeBefore}/>
               </Col>
