@@ -3,13 +3,13 @@
 PACKAGE = github.com/co60ca/beaconpi
 SERVERFLAGS =
 CLIENTFLAGS = 
-SERVERENV = CGO=0
-CLIENTENV = GOARCH=arm GOOS=linux CGO=0
+SERVERENV = #CGO=0
+CLIENTENV = GOARCH=arm GOOS=linux #CGO=0
 
 ALLGO = *.go
 
 .PHONY: all
-all: reqs build/beaconserv build/beaconclient build/metricsserv build/hcidump
+all: reqs build/beaconserv build/metricsserv build/hcidump # build/beaconclient
 
 .PHONY: clean
 clean:
