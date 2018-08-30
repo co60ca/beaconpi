@@ -157,12 +157,16 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
       return TrackingData{}, errors.Wrap(err, "Failed to fetch edges")
     }
 
+    log.Printf("edgeloc %#v", edgeloc)
+
     rssi, err := fetchAverageRSSI(db, mlr.Beacons, mlr.Edges, mlr.RequestTime)
     if err != nil {
       return TrackingData{}, errors.Wrap(err, "Failed to fetch RSSI")
     }
+    log.Printf("rssi %#v", rssi)
 
     series, err := trilatMultiBeacons(rssi, edgeloc, mlr.Beacons, mlr.Edges, mlr.RequestTime)
+    log.Printf("series %#v", series)
     //TODO(mae) actually filter
     if err != nil {
       return TrackingData{}, errors.Wrap(err, "Failed in trilat")
