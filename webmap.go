@@ -210,14 +210,14 @@ func trilatMultiBeacons(rssi []rssiTuples, loc [][]float64, beacons []int,
       if bi < len(beacons) {
         // Do trilateration and reset
         params := trilateration.Parameters3{Loc: tloc, Dis: tdist}
-        loc, err := params.SolveTrilat3()
+        trilatloc, err := params.SolveTrilat3()
         if err != nil {
           return nil, errors.Wrapf(err, "Failed to solve trilateration with Loc %v and Dist %v", tloc, tdist)
         }
         series = append(series, TimeSeriesPoint{
           Beacon: b,
           Time: time,
-          Location: loc,
+          Location: trilatloc,
         })
         // Reset
         b = beacons[bi]
