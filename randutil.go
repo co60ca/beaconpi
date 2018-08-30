@@ -27,5 +27,6 @@ func getRand() (*rand.Rand) {
 // bytes is 3*sets 
 func RandBase64(rng *rand.Rand, sets int) string {
   b := make([]byte, sets*3)
+  rng.Read(b)
   return base64.StdEncoding.EncodeToString(b)
 }

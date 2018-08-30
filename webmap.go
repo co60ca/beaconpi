@@ -161,6 +161,7 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
     }
 
     series, err := trilatMultiBeacons(rssi, edgeloc, mlr.Beacons, mlr.Edges, mlr.RequestTime)
+    //TODO(mae) actually filter
     if err != nil {
       return TrackingData{}, errors.Wrap(err, "Failed in trilat")
     }
