@@ -37,6 +37,7 @@ type TrackingData struct {
     Beacons []int
     Edges []int
     Series []TimeSeriesPoint
+    MapConfig *MapConfig
 }
 
 type TimeSeriesPoint struct {
@@ -175,6 +176,7 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
     res.Beacons = mlr.Beacons
     res.Edges = mlr.Edges
     res.RequestTime = mlr.RequestTime
+    res.MapConfig = mp
 
     return res, nil
 }
