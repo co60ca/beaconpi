@@ -127,7 +127,7 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
 
     // Initalize filters
     for _, ok := clampedPFs.filters[mlr.FilterID]; mlr.FilterID == "" || !ok; {
-      log.Printf("At check FilterID %s %v", mlr.FilterID, ok)
+      log.Printf("At check FilterID %s %v %#v", mlr.FilterID, ok, clampedPFs.filters)
       // Filter not set, make new
       mlr.FilterID = RandBase64(rng, 6)
       log.Printf("FilterID %s %v", mlr.FilterID, ok)
