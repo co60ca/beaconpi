@@ -170,7 +170,7 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
     res.Edges = mlr.Edges
     res.RequestTime = mlr.RequestTime
 
-    return TrackingData{}, nil
+    return res, nil
 }
 
 type rssiTuples struct {
