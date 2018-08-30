@@ -130,16 +130,13 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
       if _, ok := clampedPFs.filters[mlr.FilterID]; ok {
         break
       }
-      log.Printf("At check FilterID\n%s\n%v\n%#v", mlr.FilterID, ok, clampedPFs.filters)
       // Filter not set, make new
       mlr.FilterID = RandBase64(rng, 6)
-      log.Printf("FilterID %s %v", mlr.FilterID, ok)
 
       // Already exists check
-      if _, ok = clampedPFs.filters[mlr.FilterID]; ok {
+      if _, ok := clampedPFs.filters[mlr.FilterID]; ok {
         continue
       }
-      log.Println("Doesn't exist")
       // Create a new set
       clampedPFs.filters[mlr.FilterID] = &filterIdSet{timeout: time.Now().Add(time.Second * 30)}
       clampedPFs.filters[mlr.FilterID].pfs = make(map[int]*indoorfilters.PF)
