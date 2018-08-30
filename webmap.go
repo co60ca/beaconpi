@@ -237,7 +237,7 @@ func fetchAverageRSSI(db *sql.DB, beacons []int, edges []int,
     rows, err := db.Query(`select beacon, edge, rssi, distance
         from average_stamp_and_prev($1) 
         where beacon = any ($2::int[])
-        where edge = any ($3::int[])
+        and edge = any ($3::int[])
     `, ts, pq.Array(beacons), pq.Array(edges))
     if err != nil {
         return nil, errors.Wrap(err, "Failed to fetch RSSI with query")
