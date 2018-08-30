@@ -1,7 +1,7 @@
 # GNU Makefile for beaconpi
 
 PACKAGE = github.com/co60ca/beaconpi
-SERVERFLAGS =
+SERVERFLAGS := $(SERVERFLAGS)
 CLIENTFLAGS = 
 SERVERENV = #CGO=0
 CLIENTENV = GOARCH=arm GOOS=linux #CGO=0
