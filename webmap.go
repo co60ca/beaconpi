@@ -135,7 +135,7 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
       if _, ok = clampedPFs.filters[mlr.FilterID]; ok {
         continue
       }
-
+      log.Println("Doesn't exist")
       // Create a new set
       clampedPFs.filters[mlr.FilterID] = &filterIdSet{timeout: time.Now().Add(time.Second * 30)}
       clampedPFs.filters[mlr.FilterID].pfs = make(map[int]*indoorfilters.PF)
