@@ -389,7 +389,7 @@ func MetricStart(metrics *MetricsParameters) {
 
 	mux.Handle("/history/short", wc.CheckCookie(cookieAction)(beaconShortHistory()))
 	mux.Handle("/history/trilateration", wc.CheckCookie(cookieAction)(beaconTrilateration()))
-
+  //TODO(mae) restore cookie
 	mux.Handle("/history/maptracking", /*wc.CheckCookie(cookieAction)*/(filteredMapLocation(mp)))
 
 	mux.Handle("/history/export", wc.CheckCookie(cookieAction)(getCSV()))

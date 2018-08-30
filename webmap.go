@@ -285,7 +285,7 @@ func fetchMapConfig(db *sql.DB, id int) (*MapConfig, error) {
   if err := db.QueryRow(`select title, config 
       from webmap_configs
       where id = ?`, id).Scan(&title, &config); err != nil {
-        return nil, errors.New("Not yet implemented")
+        return nil, errors.Wrapf(err, "Failed to query config with id = %d", id)
   }
   buf := bytes.NewBufferString(config)
   dec := json.NewDecoder(buf)
