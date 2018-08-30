@@ -157,19 +157,18 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
       return TrackingData{}, errors.Wrap(err, "Failed to fetch edges")
     }
 
-    log.Printf("edgeloc %#v", edgeloc)
-
     rssi, err := fetchAverageRSSI(db, mlr.Beacons, mlr.Edges, mlr.RequestTime)
     if err != nil {
       return TrackingData{}, errors.Wrap(err, "Failed to fetch RSSI")
     }
-    log.Printf("rssi %#v", rssi)
 
     series, err := trilatMultiBeacons(rssi, edgeloc, mlr.Beacons, mlr.Edges, mlr.RequestTime)
-    log.Printf("series %#v", series)
-    //TODO(mae) actually filter
     if err != nil {
       return TrackingData{}, errors.Wrap(err, "Failed in trilat")
+    }
+    series, err = filterClampPFsApply(series, curfilter)
+    if err != nil {
+      return TrackingData{}, errors.Wrap(err, "Failed in filter")
     }
     res.Series = series
     res.FilterID = mlr.FilterID
@@ -178,6 +177,21 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
     res.RequestTime = mlr.RequestTime
 
     return res, nil
+}
+
+func filterClampPFsApply(series []TimeSeriesPoint, filters *filterIdSet) ([]TimeSeriesPoint, error) {
+  for i, _ := range series {
+    b := series[i].Beacon
+    pf, ok := filters.pfs[b]
+    if !ok {
+      return nil, errors.New("Beacon does not exist in list of particle filters")
+    }
+    x, y, err := pf.Round(series[i].Location[0], series[i].Location[1]); if err != nil {
+      return nil, errors.Wrap(err, "Failed during particle filter run")
+    }
+    series[i].Location[0], series[i].Location[1] = x, y
+  }
+  return series, nil
 }
 
 type rssiTuples struct {
