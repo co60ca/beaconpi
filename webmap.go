@@ -211,6 +211,7 @@ func trilatMultiBeacons(rssi []rssiTuples, loc [][]float64, beacons []int,
         // Do trilateration and reset
         params := trilateration.Parameters3{Loc: tloc, Dis: tdist}
         trilatloc, err := params.SolveTrilat3()
+        log.Printf("loc trilat %v", trilatloc)
         if err != nil {
           return nil, errors.Wrapf(err, "Failed to solve trilateration with Loc %v and Dist %v", tloc, tdist)
         }
