@@ -284,7 +284,7 @@ func fetchMapConfig(db *sql.DB, id int) (*MapConfig, error) {
   var res MapConfig
   if err := db.QueryRow(`select title, config 
       from webmap_configs
-      where id = ?`, id).Scan(&title, &config); err != nil {
+      where id = $1`, id).Scan(&title, &config); err != nil {
         return nil, errors.Wrapf(err, "Failed to query config with id = %d", id)
   }
   buf := bytes.NewBufferString(config)

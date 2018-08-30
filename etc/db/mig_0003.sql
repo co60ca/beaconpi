@@ -1,7 +1,7 @@
 create table webmap_configs (
   id serial primary key,
-  title string not null,
-  image blob not null,
+  title text not null,
+  image oid not null,
   config jsonb not null
   -- Schema for jsonb described in webmap.go
 );
