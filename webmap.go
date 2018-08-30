@@ -257,7 +257,7 @@ func fetchEdgeLocations(db *sql.DB, edges []int) (loc [][]float64, err error) {
     rows, err := db.Query(`select x, y, z
         from edge_locations
         where id = any ($1::int[])
-        sort by id
+        order by id
     `, pq.Array(edges))
 
     if err != nil {
