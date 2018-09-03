@@ -12,6 +12,7 @@ import (
     "github.com/co60ca/trilateration"
     "sync"
     "github.com/lib/pq"
+    "io"
 )
 
 type MapConfig struct {
@@ -65,6 +66,110 @@ type filterIdSet struct {
 type filterManager struct {
     sync.Mutex
     filters map[string]*filterIdSet
+}
+
+func fetchLO(db *sql.DB, i int) ([]byte, error) {
+  var res []byte
+  if err := db.QueryRow(`
+    select string_agg(a.data, '') 
+    from (select data 
+        from pg_largeobject 
+        where loid = $1 
+        order by pageno) as a`, i).Scan(&res); err != nil {
+      return nil, err
+    }
+  return res, nil
+}
+
+func fetchImage(mp MetricsParameters) http.Handler {
+	return http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
+		db, err := dbconfig.openDB()
+		if err != nil {
+			log.Infof("Error opening DB", err)
+			http.Error(w, "Server failure", 500)
+			return
+		}
+		defer db.Close()
+
+    var image int
+
+		err = db.QueryRow(`
+			select image 
+			from webmap_configs`).Scan(&image)
+		if err != nil {
+				log.Infof("Failed while quering configs %s", err)
+				http.Error(w, "Server failure", 500)
+				return
+		}
+    data, err := fetchLO(db, image)
+    if err != nil {
+				log.Infof("Failed while fetching the image %s", err)
+				http.Error(w, "Server failure", 500)
+				return
+    }
+    //TODO(mae) more mimetypes?
+    w.Header().Set("Content-Type", "image/png")
+    buf := bytes.NewBuffer(data)
+    if _, err = io.Copy(w, buf); err != nil {
+      log.Infof("Failed to copy buffer %s", err)
+      http.Error(w, "Server failure", 500)
+      return
+    }
+    return
+  })
+}
+
+func allMaps(mp MetricsParameters) http.Handler {
+	return http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
+		db, err := dbconfig.openDB()
+		if err != nil {
+			log.Infof("Error opening DB", err)
+			http.Error(w, "Server failure", 500)
+			return
+		}
+		defer db.Close()
+
+		rows, err := db.Query(`
+			select id, title, image, config 
+			from webmap_configs
+			order by id`)
+		if err != nil {
+				log.Infof("Failed while quering configs %s", err)
+				http.Error(w, "Server failure", 500)
+				return
+		}
+
+    var configs []MapConfig
+    for rows.Next() {
+      var (
+        id int
+        title string
+        config string
+      )
+      if err = rows.Scan(&id, &title, &config); err != nil {
+				log.Infof("Failed while quering configs %s", err)
+				http.Error(w, "Server failure", 500)
+				return
+      }
+
+      var res MapConfig
+      buf := bytes.NewBufferString(config)
+      dec := json.NewDecoder(buf)
+      if err := dec.Decode(&res); err != nil {
+				log.Infof("Failed while scanning configs %s", err)
+				http.Error(w, "Server failure", 500)
+				return
+      }
+      res.Id, res.Title = id, title
+      configs = append(configs, res)
+    }
+		jsonResponse(w, map[string]interface{}{
+			"Maps": configs,
+		})
+    return
+  })
 }
 
 type filterFunction func(*sql.DB, *MapConfig, *FilteredMapLocationRequest) (TrackingData, error)

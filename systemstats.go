@@ -149,7 +149,7 @@ func GetBeacons() http.Handler {
 
 		for rows.Next() {
 			var b ibeacon
-			if err = rows.Scan(&b.Id, &b.Label, &b.Uuid, &b.Major, 
+			if err = rows.Scan(&b.Id, &b.Label, &b.Uuid, &b.Major,
 					&b.Minor); err != nil {
 				log.Errorf("Failed to scan beacons in GetBeacons %s", err)
 				http.Error(w, "Server failure", 500)
