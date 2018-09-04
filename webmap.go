@@ -19,6 +19,7 @@ type MapConfig struct {
     Id int
     Title string
     // Image stored seperatly
+    Image int
     // Json part below
 
     CoordBiasX int
@@ -146,9 +147,10 @@ func allMaps(mp MetricsParameters) http.Handler {
       var (
         id int
         title string
+        mapid int
         config string
       )
-      if err = rows.Scan(&id, &title, &config); err != nil {
+      if err = rows.Scan(&id, &title, &mapid, &config); err != nil {
 				log.Infof("Failed while quering configs %s", err)
 				http.Error(w, "Server failure", 500)
 				return
@@ -420,10 +422,11 @@ func fetchEdgeLocations(db *sql.DB, edges []int) (loc [][]float64, err error) {
 func fetchMapConfig(db *sql.DB, id int) (*MapConfig, error) {
   var (
     title string
+    image int
     config string
   )
   var res MapConfig
-  if err := db.QueryRow(`select title, config 
+  if err := db.QueryRow(`select title, image, config 
       from webmap_configs
       where id = $1`, id).Scan(&title, &config); err != nil {
         return nil, errors.Wrapf(err, "Failed to query config with id = %d", id)
@@ -433,6 +436,6 @@ func fetchMapConfig(db *sql.DB, id int) (*MapConfig, error) {
   if err := dec.Decode(&res); err != nil {
     return nil, err
   }
-  res.Id, res.Title = id, title
+  res.Id, res.Title, res.Image = id, title, image
   return &res, nil
 }

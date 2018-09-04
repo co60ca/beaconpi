@@ -73,11 +73,13 @@ class MultiSelectLoad extends Component {
       eles.push(<option key={v.id} value={i++}>{v.description}</option>);
     });
 
+    var multi = this.props.multi || false;
+
     return (
       <FormGroup controlId="formSelect" onChange={this.onClick}>
         <ControlLabel>{this.props.label}</ControlLabel>
         <FormControl componentClass="select" 
-            placeholder="select" multiple
+            placeholder="select" multiple={multi}
             style={{height: (this.props.height || "150") + "px"}}>
           {eles}
         </FormControl>

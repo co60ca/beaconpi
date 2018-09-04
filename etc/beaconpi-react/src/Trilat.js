@@ -9,6 +9,15 @@ import 'react-datetime/css/react-datetime.css'
 
 import { MultiSelectLoad } from './Selection.js';
 
+var mapTransform = function(d) {
+  return d.Edges.map(e => {
+    return {
+      id: e.Id,
+      description: `${e.Title}`,
+      data: e
+    };
+  });
+};
 
 var edgeTransform = function(d) {
   return d.Edges.map(e => {
@@ -60,12 +69,17 @@ class Lateration extends Component {
         <h4>Lateration</h4>
         <Col sm={12}>
           <form>
+            <MultiSelectLoad label="Map" endpoint="/maps/allmaps"
+                datatransform={mapTransform} 
+                idConsumer={(ids) => {this.setState({map: ids})}}
+                errorConsumer={(error) => {this.handleError('maplist', error)}}
+                height='50px'/>
             <MultiSelectLoad label="Edges" endpoint="/config/alledges"
-                datatransform={edgeTransform} 
+                datatransform={edgeTransform} multi={true}
                 idConsumer={(ids) => {this.setState({edgeList: ids})}}
                 errorConsumer={(error) => {this.handleError('edgelist', error)}}/>
             <MultiSelectLoad label="Beacons" endpoint="/config/allbeacons"
-                datatransform={beaconTransform} 
+                datatransform={beaconTransform} multi={true}
                 idConsumer={(ids) => {this.setState({beaconList: ids})}}
                 errorConsumer={(error) => {this.handleError('beaconlist', error)}}/>
             <Button type="submit" 
