@@ -18,6 +18,8 @@ import { Label, FormGroup, FormControl, ControlLabel} from 'react-bootstrap';
 //   errorConsumer: Takes an error message
 // optional:
 //   placeholder: text that is displayed as the first element
+//   multi: allow multi select
+//   height: obv, default is 150px, try 50px
 class MultiSelectLoad extends Component {
   constructor(props, context) {
     super(props, context);
@@ -56,8 +58,6 @@ class MultiSelectLoad extends Component {
         this.selectToOptions[i++] = v.id;
       }
       this.setState({data: o});
-      console.log(this.selectToOptions);
-      console.log(o);
     })
     .catch((error) => {
       this.props.errorConsumer(error);

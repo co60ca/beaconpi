@@ -9,6 +9,7 @@
     "dateformat": "^3.0.3",
     "fili": "^2.0.1",
     "hex64": "^0.4.0",
+    "konva": "^2.3.0",
     "mobx": "^4.1.1",
     "mobx-react": "^5.0.0",
     "react": "^16.3.1",
@@ -16,6 +17,7 @@
     "react-chartjs-2": "^2.7.0",
     "react-datetime": "^2.14.0",
     "react-dom": "^16.3.1",
+    "react-konva": "^1.7.14",
     "react-scripts": "^1.1.5"
   },
   "scripts": {

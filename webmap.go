@@ -93,11 +93,22 @@ func fetchImage(mp MetricsParameters) http.Handler {
 		}
 		defer db.Close()
 
+    var request struct {
+      ImageID int
+    }{}
+    dec := json.NewDecoder(req.Body)
+    if err := dec.Decode(&request); err != nil {
+			log.Infof("Failed to parse request", err)
+			http.Error(w, "Invalid Request", 400)
+			return
+    }
+
     var image int
 
 		err = db.QueryRow(`
 			select image 
-			from webmap_configs`).Scan(&image)
+			from webmap_configs
+      where id = ?`, request.ImageID).Scan(&image)
 		if err != nil {
 				log.Infof("Failed while quering configs %s", err)
 				http.Error(w, "Server failure", 500)

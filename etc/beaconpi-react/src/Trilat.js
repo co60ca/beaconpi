@@ -1,16 +1,18 @@
 import React, { Component } from 'react';
-//import * as cfg from './config.js';
+import * as cfg from './config.js';
 
 import { Row, Col, Button, FormGroup, FormControl,
   Alert, ControlLabel } from 'react-bootstrap';
-
+import { Stage, Layer, Star, Text, Image } from 'react-konva';
 import Datetime from 'react-datetime';
 import 'react-datetime/css/react-datetime.css'
 
 import { MultiSelectLoad } from './Selection.js';
 
+const TIMEOUT_MS_STEPS = 500;
+
 var mapTransform = function(d) {
-  return d.Edges.map(e => {
+  return d.Maps.map(e => {
     return {
       id: e.Id,
       description: `${e.Title}`,
@@ -39,23 +41,91 @@ var beaconTransform = function(d) {
   });
 };
 
+class Map extends Component {
+  constructor(props, context) {
+    super(props, context);
+  }
+
+  componentDidMount() {
+    const image = new window.Image();
+    image.src = this.props.resource;
+    image.onload = () => {
+      // setState will redraw layer
+      // because "image" property is changed
+      this.setState({
+        image: image
+      });
+    };
+  }
+
+  render() {
+    return <Image image={this.state.image} />;
+  }
+}
+
 class Lateration extends Component {
   constructor(props, context) {
     super(props, context);
     this.state = {
       edgeList: [],
       beaconList: [],
+      map: null,
       errortext: "",
       message: "",
       submitted: false,
+      // Testing
+      formopen: false
+      //formopen: true
     };
+    this.konva_beacons = [];
     this.handleError = this.handleError.bind(this);
     this.doSubmit = this.doSubmit.bind(this);
   }
 
   handleError(source, error) {
-    console.log(source);
-    console.log(error);
+    console.log(`source: ${source}, error: ${error}`);
+  }
+
+  startLoop() {
+    if (!this.looptimeout) {
+      this.looptimeout = setTimeout(this.loop, TIMEOUT_MS_STEPS);
+    }
+  }
+
+  updateDisplay() {
+    //TODO(mae)
+
+  }
+
+  loop() {
+    var that = this;
+    fetch(cfg.app + '/history/maptracking', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(this.request),
+    }).then((r) => r.json())
+    .then((d) => {
+      // Update the filterID if we were reset by the server
+      try {
+        that.request.FilterID = d.FilterID;
+        that.setState({
+          edgeList: d.Edges,
+          beaconList: d.Beacons,
+          mapConfig: d.MapConfig,
+          timeData: d.Series
+        });
+        that.updateDisplay();
+      } finally {
+        that.startLoop();
+      }
+    })
+    .catch((error) => {
+      that.handleError('maptracking', error);
+    });
   }
 
   doSubmit() {
@@ -68,6 +138,17 @@ class Lateration extends Component {
       <Row>
         <h4>Lateration</h4>
         <Col sm={12}>
+        {!this.state.formopen && 
+          <Stage>
+            <Layer>
+              <Map resource={this.state.mapimg}/>
+            </Layer> 
+            <Layer>
+              {this.beacons}
+            </Layer>
+          </Stage>
+        }
+        {this.state.formopen &&
           <form>
             <MultiSelectLoad label="Map" endpoint="/maps/allmaps"
                 datatransform={mapTransform} 
@@ -86,10 +167,11 @@ class Lateration extends Component {
             disabled={this.state.beaconList.length === 0 
             || this.state.edgeList === 0} onClick={this.doSubmit}>Display Filter</Button>
           </form>
-          {this.state.message !== "" && 
-            <Alert bsStyle="info">{this.state.message}</Alert>}
-          {this.state.errortext !== "" && 
-            <Alert bsStyle="danger">{this.state.errortext}</Alert>}
+        }
+        {this.state.message !== "" && 
+          <Alert bsStyle="info">{this.state.message}</Alert>}
+        {this.state.errortext !== "" && 
+          <Alert bsStyle="danger">{this.state.errortext}</Alert>}
         </Col>
       </Row>
     );
