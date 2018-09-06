@@ -95,7 +95,7 @@ func fetchImage(mp MetricsParameters) http.Handler {
 
     var request struct {
       ImageID int
-    }{}
+    }
     dec := json.NewDecoder(req.Body)
     if err := dec.Decode(&request); err != nil {
 			log.Infof("Failed to parse request", err)
