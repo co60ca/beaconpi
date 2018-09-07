@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "array-equal": "^1.0.0",
     "bootstrap": "^3.3.7",
     "chart.js": "^2.7.2",
     "color-scheme": "^1.0.0",

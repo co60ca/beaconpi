@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
 import * as cfg from './config.js';
 import Measure from 'react-measure';
+import equals from 'array-equal';
 
 import { Row, Col, Button, FormGroup, FormControl,
   Alert, ControlLabel } from 'react-bootstrap';
-import { Stage, Layer, Star, Text, Image } from 'react-konva';
+import { Circle, Stage, Layer, Star, Text, Image } from 'react-konva';
 import Datetime from 'react-datetime';
 import 'react-datetime/css/react-datetime.css'
 import dateFormat from 'dateformat';
@@ -12,6 +13,7 @@ import dateFormat from 'dateformat';
 import { MultiSelectLoad } from './Selection.js';
 
 const TIMEOUT_MS_STEPS = 500;
+const CIRCLE_BASESIZE = 40;
 
 var mapTransform = function(d) {
   return d.Maps.map(e => {
@@ -65,13 +67,15 @@ class Map extends Component {
     .then(url => {
       var img = new window.Image();
       img.src = url;
-      that.setState({image: img});
+      img.onload = () => {
+        that.setState({image: img});
+      }
     })
     .catch(that.errorConsumer);
   }
 
   render() {
-    return <Image image={this.state.image} scale={this.props.scale} offset={this.props.offset}/>;
+    return <Image image={this.state.image} scale={this.props.scale} />;
   }
 }
 
@@ -88,12 +92,18 @@ class Lateration extends Component {
       formopen: true,
       stagewidth: 1000,
       stageheight: 1000,
-      uiscale: 0.5,
+      uiscale: {x: 0.5, y: 0.5},
+      mapscale: {x: 1, y: 1},
       offset: {x: 0.0, y: 0.0}
     };
-    this.konva_beacons = [];
     this.handleError = this.handleError.bind(this);
     this.doSubmit = this.doSubmit.bind(this);
+    this.updateBeacons = this.updateBeacons.bind(this);
+    this.loop = this.loop.bind(this);
+
+    this.uibeacons = [];
+    this.uibeaconref = [];
+    this.uibeaconloc = [];
   }
 
   handleError(source, error) {
@@ -109,10 +119,31 @@ class Lateration extends Component {
   updateDisplay() {
     //TODO(mae)
 
-    var mc = this.state.MapConfig;
+    var mc = this.state.mapConfig;
+    this.setState({
+      offset: {x: mc.CoordBiasX, y:mc.CoordBiasY},
+      mapscale: {x: mc.CoordScaleX, y: mc.CoordScaleY}
+    });/*
+    for (let b of this.uibeaconref) {
+      b.scale(this.state.uiscale);
+    }
+    for (let t in this.state.timeData) {
+      // TODO always sort results?
+      var ts = this.state.timeData[t];
+      var ele = this.state.beaconList.indexOf(ts.Beacon);
+      if (ele === -1) {
+        throw "Beacon not in list!";
+      }
+      this.uibeaconlog[ele] = loc;
+    }
+*/
+  }
+  
+  updateBeacons(newbeacons) {
   }
 
   loop() {
+    this.looptimeout = null;
     var that = this;
     fetch(cfg.app + '/history/maptracking', {
       method: 'POST',
@@ -127,15 +158,31 @@ class Lateration extends Component {
       // Update the filterID if we were reset by the server
       try {
         that.request.FilterID = d.FilterID;
+        var loc = new Array(d.Series.length);
+        for (let i in d.Series) {
+          let index = d.Beacons.indexOf(d.Series[i].Beacon);
+          if (index === -1) {
+            throw "Unfound index";
+          }
+          let ts = d.Series[i];
+          let tloc = {
+            x: this.state.offset.x * this.state.uiscale.x + this.state.mapscale.x * ts.Location[0] * this.state.uiscale.x,
+            y: this.state.offset.y * this.state.uiscale.y + this.state.mapscale.y * ts.Location[1] * this.state.uiscale.y
+          }
+          loc[index] = tloc;
+          
+        }
         that.setState({
           edgeList: d.Edges,
           beaconList: d.Beacons,
           mapConfig: d.MapConfig,
-          timeData: d.Series
+          timeData: d.Series,
+          formopen: false,
+          uibeaconsloc: loc
         });
         that.updateDisplay();
       } finally {
-//        that.startLoop();
+        that.startLoop();
       }
     })
     .catch((error) => {
@@ -149,14 +196,21 @@ class Lateration extends Component {
       Beacons: this.state.beaconList,
       Edges: this.state.edgeList,
       MapID: this.state.map,
-      RequestTime: dateFormat(new Date(), 'isoUtcDateTime'),
+      RequestTime: dateFormat(new Date(Date.now()-3000), 'isoUtcDateTime'),
       Algorithm: "particle-filter-velocity"
     };
     this.loop();    
   }
 
   render() {
-
+    let beacons = [];
+    if (this.state.uibeaconsloc) {
+      for (let i in this.state.uibeaconsloc) {
+        var circle = <Circle radius={CIRCLE_BASESIZE} fill={'red'} stroke={'black'}
+          strokeWidth={2} {...this.state.uibeaconsloc[i]} scale={this.state.uiscale}/>
+        beacons.push(circle);
+      }
+    }
     return (
       <Row>
         <h4>Lateration</h4>
@@ -165,14 +219,14 @@ class Lateration extends Component {
             <Stage height={this.state.stageheight} width={this.state.stagewidth} 
                 draggable>
               <Layer>
-                {this.beacons}
-              </Layer>
-              <Layer>
                 <Map ref={r => {this.elemap = r}} resource={this.state.map} 
                   errConsumer={(e) => this.handleError('img', e)} 
-                  scale={{x: this.state.uiscale, y: this.state.uiscale}}
-                  offset={this.state.offset}/>
+                  scale={this.state.uiscale}
+                  />
               </Layer> 
+              <Layer>
+                {beacons}
+              </Layer>
             </Stage>
 
           }
@@ -180,7 +234,7 @@ class Lateration extends Component {
             <form>
               <MultiSelectLoad label="Map" endpoint="/maps/allmaps"
                   datatransform={mapTransform} 
-                  idConsumer={(ids) => {this.setState({map: (ids && ids.length == 1) ? ids[0] : null})}}
+                  idConsumer={(ids) => {this.setState({map: (ids && ids.length === 1) ? ids[0] : null})}}
                   errorConsumer={(error) => {this.handleError('maplist', error)}}
                   height='50px'/>
               <MultiSelectLoad label="Edges" endpoint="/config/alledges"
@@ -200,8 +254,7 @@ class Lateration extends Component {
             <Alert bsStyle="info">{this.state.message}</Alert>}
           {this.state.errortext !== "" && 
             <Alert bsStyle="danger">{this.state.errortext}</Alert>}
-          </Col>
-          }
+        </Col>
       </Row>
     );
   }

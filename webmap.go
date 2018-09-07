@@ -262,7 +262,7 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
       for _, v := range mlr.Beacons {
         clampedPFs.filters[mlr.FilterID].pfs[v] = indoorfilters.NewClampedFilter(
             mp.Limits[0], mp.Limits[1], mp.Limits[2], mp.Limits[3],
-            200, 0.5, 1.0, 1.0)
+            200, 0.5, 0.01, 5.0)
       }
     }
 
