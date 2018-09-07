@@ -108,7 +108,7 @@ func fetchImage(mp MetricsParameters) http.Handler {
 		err = db.QueryRow(`
 			select image 
 			from webmap_configs
-      where id = ?`, request.ImageID).Scan(&image)
+      where id = $1`, request.ImageID).Scan(&image)
 		if err != nil {
 				log.Infof("Failed while quering configs %s", err)
 				http.Error(w, "Server failure", 500)

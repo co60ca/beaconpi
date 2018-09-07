@@ -44,18 +44,28 @@ var beaconTransform = function(d) {
 class Map extends Component {
   constructor(props, context) {
     super(props, context);
+    this.state = {};
   }
 
   componentDidMount() {
-    const image = new window.Image();
-    image.src = this.props.resource;
-    image.onload = () => {
-      // setState will redraw layer
-      // because "image" property is changed
-      this.setState({
-        image: image
-      });
-    };
+    var that = this;
+    fetch(cfg.app + '/maps/mapimage', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({'ImageID': this.props.resource}),
+    })
+    .then(response => response.blob())
+    .then(blob => URL.createObjectURL(blob))
+    .then(url => {
+      var img = new window.Image();
+      img.src = url;
+      that.setState({image: img});
+    })
+    .catch(that.errorConsumer);
   }
 
   render() {
@@ -74,8 +84,9 @@ class Lateration extends Component {
       message: "",
       submitted: false,
       // Testing
-      formopen: false
-      //formopen: true
+      formopen: false,
+      //formopen: true,
+      mapimg: 49454
     };
     this.konva_beacons = [];
     this.handleError = this.handleError.bind(this);
@@ -141,7 +152,7 @@ class Lateration extends Component {
         {!this.state.formopen && 
           <Stage>
             <Layer>
-              <Map resource={this.state.mapimg}/>
+              <Map resource={this.state.mapimg} errConsumer={(e) => this.handleError('img', e)}/>
             </Layer> 
             <Layer>
               {this.beacons}
