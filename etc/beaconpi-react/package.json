@@ -18,6 +18,7 @@
     "react-datetime": "^2.14.0",
     "react-dom": "^16.3.1",
     "react-konva": "^1.7.14",
+    "react-measure": "^2.1.0",
     "react-scripts": "^1.1.5"
   },
   "scripts": {

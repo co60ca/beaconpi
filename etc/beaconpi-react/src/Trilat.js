@@ -1,11 +1,13 @@
 import React, { Component } from 'react';
 import * as cfg from './config.js';
+import Measure from 'react-measure';
 
 import { Row, Col, Button, FormGroup, FormControl,
   Alert, ControlLabel } from 'react-bootstrap';
 import { Stage, Layer, Star, Text, Image } from 'react-konva';
 import Datetime from 'react-datetime';
 import 'react-datetime/css/react-datetime.css'
+import dateFormat from 'dateformat';
 
 import { MultiSelectLoad } from './Selection.js';
 
@@ -69,7 +71,7 @@ class Map extends Component {
   }
 
   render() {
-    return <Image image={this.state.image} />;
+    return <Image image={this.state.image} scale={this.props.scale} offset={this.props.offset}/>;
   }
 }
 
@@ -79,14 +81,15 @@ class Lateration extends Component {
     this.state = {
       edgeList: [],
       beaconList: [],
-      map: null,
+      map: 1,
       errortext: "",
       message: "",
       submitted: false,
-      // Testing
-      formopen: false,
-      //formopen: true,
-      mapimg: 49454
+      formopen: true,
+      stagewidth: 1000,
+      stageheight: 1000,
+      uiscale: 0.5,
+      offset: {x: 0.0, y: 0.0}
     };
     this.konva_beacons = [];
     this.handleError = this.handleError.bind(this);
@@ -106,6 +109,7 @@ class Lateration extends Component {
   updateDisplay() {
     //TODO(mae)
 
+    var mc = this.state.MapConfig;
   }
 
   loop() {
@@ -131,7 +135,7 @@ class Lateration extends Component {
         });
         that.updateDisplay();
       } finally {
-        that.startLoop();
+//        that.startLoop();
       }
     })
     .catch((error) => {
@@ -140,7 +144,15 @@ class Lateration extends Component {
   }
 
   doSubmit() {
-    
+    this.request = {
+      FilterID: "",
+      Beacons: this.state.beaconList,
+      Edges: this.state.edgeList,
+      MapID: this.state.map,
+      RequestTime: dateFormat(new Date(), 'isoUtcDateTime'),
+      Algorithm: "particle-filter-velocity"
+    };
+    this.loop();    
   }
 
   render() {
@@ -149,41 +161,47 @@ class Lateration extends Component {
       <Row>
         <h4>Lateration</h4>
         <Col sm={12}>
-        {!this.state.formopen && 
-          <Stage>
-            <Layer>
-              <Map resource={this.state.mapimg} errConsumer={(e) => this.handleError('img', e)}/>
-            </Layer> 
-            <Layer>
-              {this.beacons}
-            </Layer>
-          </Stage>
-        }
-        {this.state.formopen &&
-          <form>
-            <MultiSelectLoad label="Map" endpoint="/maps/allmaps"
-                datatransform={mapTransform} 
-                idConsumer={(ids) => {this.setState({map: ids})}}
-                errorConsumer={(error) => {this.handleError('maplist', error)}}
-                height='50px'/>
-            <MultiSelectLoad label="Edges" endpoint="/config/alledges"
-                datatransform={edgeTransform} multi={true}
-                idConsumer={(ids) => {this.setState({edgeList: ids})}}
-                errorConsumer={(error) => {this.handleError('edgelist', error)}}/>
-            <MultiSelectLoad label="Beacons" endpoint="/config/allbeacons"
-                datatransform={beaconTransform} multi={true}
-                idConsumer={(ids) => {this.setState({beaconList: ids})}}
-                errorConsumer={(error) => {this.handleError('beaconlist', error)}}/>
-            <Button type="submit" 
-            disabled={this.state.beaconList.length === 0 
-            || this.state.edgeList === 0} onClick={this.doSubmit}>Display Filter</Button>
-          </form>
-        }
-        {this.state.message !== "" && 
-          <Alert bsStyle="info">{this.state.message}</Alert>}
-        {this.state.errortext !== "" && 
-          <Alert bsStyle="danger">{this.state.errortext}</Alert>}
-        </Col>
+          {!this.state.formopen && 
+            <Stage height={this.state.stageheight} width={this.state.stagewidth} 
+                draggable>
+              <Layer>
+                {this.beacons}
+              </Layer>
+              <Layer>
+                <Map ref={r => {this.elemap = r}} resource={this.state.map} 
+                  errConsumer={(e) => this.handleError('img', e)} 
+                  scale={{x: this.state.uiscale, y: this.state.uiscale}}
+                  offset={this.state.offset}/>
+              </Layer> 
+            </Stage>
+
+          }
+          {this.state.formopen &&
+            <form>
+              <MultiSelectLoad label="Map" endpoint="/maps/allmaps"
+                  datatransform={mapTransform} 
+                  idConsumer={(ids) => {this.setState({map: (ids && ids.length == 1) ? ids[0] : null})}}
+                  errorConsumer={(error) => {this.handleError('maplist', error)}}
+                  height='50px'/>
+              <MultiSelectLoad label="Edges" endpoint="/config/alledges"
+                  datatransform={edgeTransform} multi={true}
+                  idConsumer={(ids) => {this.setState({edgeList: ids})}}
+                  errorConsumer={(error) => {this.handleError('edgelist', error)}}/>
+              <MultiSelectLoad label="Beacons" endpoint="/config/allbeacons"
+                  datatransform={beaconTransform} multi={true}
+                  idConsumer={(ids) => {this.setState({beaconList: ids})}}
+                  errorConsumer={(error) => {this.handleError('beaconlist', error)}}/>
+              <Button type="button" 
+              disabled={this.state.beaconList.length === 0 
+              || this.state.edgeList === 0} onClick={this.doSubmit}>Display Filter</Button>
+            </form>
+          }
+          {this.state.message !== "" && 
+            <Alert bsStyle="info">{this.state.message}</Alert>}
+          {this.state.errortext !== "" && 
+            <Alert bsStyle="danger">{this.state.errortext}</Alert>}
+          </Col>
+          }
       </Row>
     );
   }
