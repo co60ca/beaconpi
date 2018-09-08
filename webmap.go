@@ -275,7 +275,7 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
     if err != nil {
       return TrackingData{}, errors.Wrap(err, "Failed to fetch edges")
     }
-
+    log.Infof("mlr.RequestTime %s", mlr.RequestTime)
     rssi, err := fetchAverageRSSI(db, mlr.Beacons, mlr.Edges, mlr.RequestTime)
     log.Infof("Rssi %#v", rssi)
     if err != nil {

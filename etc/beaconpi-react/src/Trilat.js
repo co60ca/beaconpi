@@ -145,6 +145,8 @@ class Lateration extends Component {
   loop() {
     this.looptimeout = null;
     var that = this;
+
+    this.request.RequestTime = dateFormat(new Date(Date.now()-3000), 'isoUtcDateTime');
     fetch(cfg.app + '/history/maptracking', {
       method: 'POST',
       headers: {
