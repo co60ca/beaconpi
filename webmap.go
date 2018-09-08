@@ -277,7 +277,6 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
     }
     log.Infof("mlr.RequestTime %s", mlr.RequestTime)
     rssi, err := fetchAverageRSSI(db, mlr.Beacons, mlr.Edges, mlr.RequestTime)
-    log.Infof("Rssi %#v", rssi)
     if err != nil {
       return TrackingData{}, errors.Wrap(err, "Failed to fetch RSSI")
     }
@@ -286,7 +285,6 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
     if err != nil {
       return TrackingData{}, errors.Wrap(err, "Failed in trilat")
     }
-    log.Infof("Series %#v", series)
     series, err = filterClampPFsApply(series, curfilter)
     if err != nil {
       return TrackingData{}, errors.Wrap(err, "Failed in filter")
@@ -341,12 +339,10 @@ func trilatMultiBeacons(rssi []rssiTuples, loc [][]float64, beacons []int,
   var tdist []float64
 
   for _, v := range rssi {
-    log.Infof("v %v", v)
     if v.Beacon != b {
       bi += 1
       if bi < len(beacons) {
         // Do trilateration and reset
-        log.Infof("tloc %v, tdis %v", tloc, tdist)
         params := trilateration.Parameters3{Loc: tloc, Dis: tdist}
         trilatloc, err := params.SolveTrilat3()
         if err != nil {
@@ -375,10 +371,8 @@ func trilatMultiBeacons(rssi []rssiTuples, loc [][]float64, beacons []int,
   }
 
   // Finally do the last trilat
-  log.Infof("Last: tloc %v, tdis %v", tloc, tdist)
   params := trilateration.Parameters3{Loc: tloc, Dis: tdist}
   trilatloc, err := params.SolveTrilat3()
-  log.Infof("Last rsult: %v", trilatloc)
   if err != nil {
     return nil, errors.Wrapf(err, "Failed to solve trilateration with Loc %v and Dist %v", tloc, tdist)
   }
