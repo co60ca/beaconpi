@@ -341,6 +341,7 @@ func trilatMultiBeacons(rssi []rssiTuples, loc [][]float64, beacons []int,
   var tdist []float64
 
   for _, v := range rssi {
+    log.Infof("v %v", v)
     if v.Beacon != b {
       bi += 1
       if bi < len(beacons) {
