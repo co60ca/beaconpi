@@ -232,6 +232,17 @@ func filteredMapLocation(mp MetricsParameters) http.Handler {
   })
 }
 
+func (fm *filterManager) clearTimeouts() {
+  fm.Lock()
+  defer fm.Unlock()
+  now := time.Now()
+  for k, v := range(fm.filters) {
+    if v.timeout.Before(now) {
+      delete(fm.filters, k)
+    }
+  }
+}
+
 var clampedPFs filterManager
 func particleFilterVelocity(db *sql.DB, mp *MapConfig,
     mlr *FilteredMapLocationRequest) (TrackingData, error) {
@@ -240,6 +251,7 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
       clampedPFs.filters = make(map[string]*filterIdSet)
     }
     clampedPFs.Lock()
+    defer func(){go clampedPFs.clearTimeouts()}()
     defer clampedPFs.Unlock()
 
     rng := getRand()

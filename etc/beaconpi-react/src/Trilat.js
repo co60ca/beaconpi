@@ -1,12 +1,8 @@
 import React, { Component } from 'react';
 import * as cfg from './config.js';
-import Measure from 'react-measure';
-import equals from 'array-equal';
 
-import { Row, Col, Button, FormGroup, FormControl,
-  Alert, ControlLabel } from 'react-bootstrap';
-import { Circle, Stage, Layer, Star, Text, Image } from 'react-konva';
-import Datetime from 'react-datetime';
+import { Row, Col, Button, Alert} from 'react-bootstrap';
+import { Circle, Stage, Layer, Image } from 'react-konva';
 import 'react-datetime/css/react-datetime.css'
 import dateFormat from 'dateformat';
 
@@ -189,6 +185,7 @@ class Lateration extends Component {
     })
     .catch((error) => {
       that.handleError('maptracking', error);
+      that.startLoop();
     });
   }
 

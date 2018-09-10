@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import * as cfg from './config.js';
 
-import { Label, FormGroup, FormControl, ControlLabel} from 'react-bootstrap';
+import {FormGroup, FormControl, ControlLabel} from 'react-bootstrap';
 
 // import Datetime from 'react-datetime';
 // import 'react-datetime/css/react-datetime.css'
