@@ -8,7 +8,7 @@ import dateFormat from 'dateformat';
 
 import { MultiSelectLoad } from './Selection.js';
 
-const TIMEOUT_MS_STEPS = 500;
+const TIMEOUT_MS_STEPS = 100;
 const CIRCLE_BASESIZE = 40;
 
 var mapTransform = function(d) {
@@ -205,8 +205,11 @@ class Lateration extends Component {
     let beacons = [];
     if (this.state.uibeaconsloc) {
       for (let i in this.state.uibeaconsloc) {
+        var curloc = this.state.uibeaconsloc[i];
+
         var circle = <Circle radius={CIRCLE_BASESIZE} fill={'red'} stroke={'black'}
-          strokeWidth={2} {...this.state.uibeaconsloc[i]} scale={this.state.uiscale}/>
+          strokeWidth={2} {...curloc} scale={this.state.uiscale}/>
+
         beacons.push(circle);
       }
     }
