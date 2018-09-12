@@ -28,11 +28,15 @@ import (
 )
 
 const (
-	DEFAULT_PORT    = "32969"
-	MAX_BEACONS     = 256
-	MAX_LOGS        = 256
-	MAX_CTRL        = 65535
-	CURRENT_VERSION = 0
+	DEFAULT_PORT = "32969"
+	MAX_BEACONS  = 256
+	MAX_LOGS     = 256
+	MAX_CTRL     = 65535
+	// Based on the size of the encompassing types this is the max size
+	// of a packet, all others should be dropped
+	// 16 is for UUID, 1 is for Flags
+	MAX_SIZE        = MAX_CTRL + MAX_LOGS*12 + MAX_BEACONS*20 + 16 + 1
+	CURRENT_VERSION = 1
 )
 
 type Uuid [16]byte
@@ -44,12 +48,14 @@ func (u Uuid) String() string {
 		hex.EncodeToString(u[10:16]))
 }
 
+// 12 Bytes
 type BeaconLog struct {
 	Datetime    time.Time
 	Rssi        int16
 	BeaconIndex uint16
 }
 
+// 20 Bytes
 type BeaconData struct {
 	Uuid  Uuid `json:"string"`
 	Major uint16
@@ -92,6 +98,7 @@ type BeaconResponsePacket struct {
 	Data string
 }
 
+// Output is 12 bytes
 func (b *BeaconLog) MarshalBinary() ([]byte, error) {
 	outbuff := make([]byte, 12)
 	buff := new(bytes.Buffer)
@@ -104,6 +111,7 @@ func (b *BeaconLog) MarshalBinary() ([]byte, error) {
 	return outbuff, nil
 }
 
+// Output is 20 bytes
 func (b *BeaconData) MarshalBinary() ([]byte, error) {
 	outbuff := make([]byte, 20)
 	copy(outbuff[0:16], b.Uuid[:])
@@ -217,7 +225,7 @@ func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
 	}
 	pointer += 1
 	// Check for version 1
-	if b.Flags&VERSION_MASK != CURRENT_VERSION {
+	if b.Flags&VERSION_MASK <= CURRENT_VERSION {
 		return errors.New("This version of the library only supports version 0" +
 			" of the protocol, a higher version was presented")
 	}
@@ -299,7 +307,7 @@ func (b *BeaconResponsePacket) UnmarshalBinary(d []byte) error {
 	if err := littleEndianDecode(d[0:2], &b.Flags); err != nil {
 		return err
 	}
-	if b.Flags&VERSION_MASK != CURRENT_VERSION {
+	if b.Flags&VERSION_MASK <= CURRENT_VERSION {
 		return errors.New("Version of packet is too new, we only support version <= 0")
 	}
 
