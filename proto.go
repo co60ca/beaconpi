@@ -225,7 +225,7 @@ func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
 	}
 	pointer += 1
 	// Check for version 1
-	if b.Flags&VERSION_MASK <= CURRENT_VERSION {
+	if b.Flags&VERSION_MASK >= CURRENT_VERSION {
 		return errors.New("This version of the library only supports version 0" +
 			" of the protocol, a higher version was presented")
 	}
@@ -307,7 +307,7 @@ func (b *BeaconResponsePacket) UnmarshalBinary(d []byte) error {
 	if err := littleEndianDecode(d[0:2], &b.Flags); err != nil {
 		return err
 	}
-	if b.Flags&VERSION_MASK <= CURRENT_VERSION {
+	if b.Flags&VERSION_MASK >= CURRENT_VERSION {
 		return errors.New("Version of packet is too new, we only support version <= 0")
 	}
 
