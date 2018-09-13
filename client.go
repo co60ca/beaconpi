@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//
-
 package beaconpi
 
 import (
@@ -111,7 +109,6 @@ func StartClient() {
 		log.Fatal("uuid is not valid hex, do not include -")
 	}
 	copy(client.uuid[:], uuiddec)
-	log.Printf("Client arguments %#v", client)
 	clientLoop(&client)
 }
 
@@ -121,7 +118,7 @@ func clientLoop(client *clientinfo) {
 	timeruuid := time.NewTicker(client.timeoutBeaconRefresh)
 	timerbeacon := time.NewTicker(client.timeoutBeacon)
 	brs := make(chan BeaconRecord, 256)
-	go ProcessIBeacons(client, brs)
+	go processIBeacons(client, brs)
 	log.Println("Init request beacons")
 
 	var conn *tls.Conn

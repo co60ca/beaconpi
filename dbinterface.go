@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//
 package beaconpi
 
 import (
@@ -28,6 +27,7 @@ import (
 	"time"
 )
 
+// dbHandler stores data for use in opening a connection to the DB
 type dbHandler struct {
 	Drivername     string
 	DataSourceName string

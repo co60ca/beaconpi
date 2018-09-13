@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//
-
 package beaconpi
 
 import (
@@ -86,9 +84,9 @@ type BeaconRecord struct {
 	Rssi     int16
 }
 
-// ProcessIBeacons returns a stream of BeaconRecords given the collection of
+// processIBeacons returns a stream of BeaconRecords given the collection of
 // valid beacons given from client
-func ProcessIBeacons(client *clientinfo, brs chan BeaconRecord) {
+func processIBeacons(client *clientinfo, brs chan BeaconRecord) {
 	bleadv := make(chan *bytes.Buffer, 128)
 	go produceBLEAdv(bleadv)
 

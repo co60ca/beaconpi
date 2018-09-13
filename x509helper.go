@@ -22,6 +22,8 @@ import (
 	"log"
 )
 
+// LoadFileToCert is a helper that opens a file by string and returns a
+// x509 cert pool giving a fatal error on failure
 func LoadFileToCert(file string) *x509.CertPool {
 	certs := x509.NewCertPool()
 	cert, err := ioutil.ReadFile(file)

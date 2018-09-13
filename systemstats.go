@@ -1,3 +1,19 @@
+// Beacon Pi, a edge node system for iBeacons and Edge nodes made of Pi
+// Copyright (C) 2017  Maeve Kennedy
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package beaconpi
 
 import (
@@ -9,6 +25,7 @@ import (
 	"net/http"
 )
 
+// jsonResponse helper for sending simple JSON objects
 func jsonResponse(w http.ResponseWriter, results map[string]interface{}) {
 	encoder := json.NewEncoder(w)
 	err := encoder.Encode(results)
@@ -19,6 +36,7 @@ func jsonResponse(w http.ResponseWriter, results map[string]interface{}) {
 	return
 }
 
+// quickStats returns a few simple statistics useful for system administration
 func quickStats() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
@@ -117,7 +135,8 @@ func quickStats() http.Handler {
 	})
 }
 
-func GetBeacons() http.Handler {
+// getBeacons returns all beacons to the requestor
+func getBeacons() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
 		db, err := dbconfig.openDB()
@@ -164,7 +183,8 @@ func GetBeacons() http.Handler {
 	})
 }
 
-func GetEdges() http.Handler {
+// getEdges returns all the edges to the caller
+func getEdges() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
 		db, err := dbconfig.openDB()
@@ -242,7 +262,8 @@ func validateLen(pass error, field interface{}, fieldn string, minlen int) error
 	return errors.New(fmt.Sprintf("Field %s is unknown type, (value %v)", fieldn, field))
 }
 
-func ModEdge() http.Handler {
+// modEdge allows the caller to modify edges through the administrative panel
+func modEdge() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		input := struct {
 			Id          int
@@ -316,7 +337,8 @@ func ModEdge() http.Handler {
 	})
 }
 
-func ModBeacon() http.Handler {
+// modBeacon allows users to modify beacons through the admin interface
+func modBeacon() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		input := struct {
 			Id     int

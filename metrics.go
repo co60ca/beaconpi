@@ -1,3 +1,19 @@
+// Beacon Pi, a edge node system for iBeacons and Edge nodes made of Pi
+// Copyright (C) 2017  Maeve Kennedy
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package beaconpi
 
 import (
@@ -126,10 +142,10 @@ func MetricStart(metrics *MetricsParameters) {
 	mux.Handle("/auth/allusers", wc.CheckCookie(cookieAction)(wc.GetUsers()))
 	mux.Handle("/auth/moduser", wc.CheckCookie(cookieAction)(wc.ModUser()))
 
-	mux.Handle("/config/modbeacon", wc.CheckCookie(cookieAction)(ModBeacon()))
-	mux.Handle("/config/modedge", wc.CheckCookie(cookieAction)(ModEdge()))
-	mux.Handle("/config/allbeacons", wc.CheckCookie(cookieAction)(GetBeacons()))
-	mux.Handle("/config/alledges", wc.CheckCookie(cookieAction)(GetEdges()))
+	mux.Handle("/config/modbeacon", wc.CheckCookie(cookieAction)(modBeacon()))
+	mux.Handle("/config/modedge", wc.CheckCookie(cookieAction)(modEdge()))
+	mux.Handle("/config/allbeacons", wc.CheckCookie(cookieAction)(getBeacons()))
+	mux.Handle("/config/alledges", wc.CheckCookie(cookieAction)(getEdges()))
 	mux.Handle("/stats/quick", wc.CheckCookie(cookieAction)(quickStats()))
 
 	mux.Handle("/history/short", wc.CheckCookie(cookieAction)(beaconShortHistory()))

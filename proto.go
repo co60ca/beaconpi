@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//
 package beaconpi
 
 import (
@@ -101,6 +100,7 @@ const (
 	REQUEST_CONTROL_COMPLETE = 0x40
 )
 
+// BeaconLogPacket should be sent by clients to the server
 type BeaconLogPacket struct {
 	// Request flags
 	Flags uint8
@@ -113,6 +113,7 @@ type BeaconLogPacket struct {
 	ControlData string
 }
 
+// BeaconResponsePacket is the response to the client from the server
 type BeaconResponsePacket struct {
 	// Response flags
 	Flags uint16

@@ -32,11 +32,14 @@ import (
 
 var db *dbHandler
 
+// Required BeaconServer config
 type ServerConfig struct {
-	X509cert   string
-	X509key    string
+	X509cert string
+	X509key  string
+	// Database drivername, must be psql
 	Drivername string
-	DSN        string
+	// Database data source name
+	DSN string
 }
 
 func GetFlags() (out ServerConfig) {
@@ -58,6 +61,7 @@ func GetFlags() (out ServerConfig) {
 	return
 }
 
+// StartServer is the main interface for the BeaconServer
 func StartServer(x509cert, x509key, drivername, dsn string, end chan struct{}) {
 	// Logging
 	log.SetLevel(log.DebugLevel)
@@ -143,6 +147,7 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 	}
 }
 
+// handleConnection handles the connection once established
 func handleConnection(conn net.Conn, end chan struct{}) {
 	databuff := new(bytes.Buffer)
 	// First we need to find out if the packet is version 0 or >0
@@ -230,8 +235,9 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 	}
 }
 
-// Will return the specificed number of bytes, or an error if
-// canceled/other issue
+// readBytesOrCancel will read the specified bytes from connection and return
+// an error if there was a problem, it handles timeouts to allow you to cancel
+// the connection by closing the end channel
 func readBytesOrCancel(conn net.Conn, n int64,
 	resp *BeaconResponsePacket, version uint8,
 	end chan struct{}) (*bytes.Buffer, error) {
@@ -273,6 +279,8 @@ func readBytesOrCancel(conn net.Conn, n int64,
 	return buff, nil
 }
 
+// handlePacket operates on a single packet inserting data
+// and sending back status and commands
 func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 	pack *BeaconLogPacket) {
 	version := pack.Flags & VERSION_MASK

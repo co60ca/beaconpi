@@ -9,7 +9,7 @@ CLIENTENV = GOARCH=arm GOOS=linux #CGO=0
 ALLGO = *.go
 
 .PHONY: all
-all: reqs build/beaconserv build/metricsserv build/hcidump # build/beaconclient
+all: reqs build/beaconserv build/metricsserv # build/beaconclient
 
 .PHONY: clean
 clean:
@@ -22,13 +22,10 @@ reqs:
 
 build/beaconserv: $(ALLGO)
 	$(SERVERENV) \
-	go build -o $@ $(SERVERFLAGS) $(PACKAGE)/beaconserv
+	go build -o $@ $(SERVERFLAGS) $(PACKAGE)/cmd/beaconserver
 build/beaconclient: $(ALLGO)
 	$(CLIENTENV) \
-	go build -o $@ $(CLIENTFLAGS) $(PACKAGE)/beaconclient
+	go build -o $@ $(CLIENTFLAGS) $(PACKAGE)/cmd/beaconclient
 build/metricsserv: $(ALLGO)
 	$(SERVERENV) \
-	go build -o $@ $(SERVERFLAGS) $(PACKAGE)/metricsserv  
-build/hcidump: $(ALLGO)
-	$(SERVERENV) \
-	go build -o $@ $(SERVERFLAGS) $(PACKAGE)/mockhcidump
+	go build -o $@ $(SERVERFLAGS) $(PACKAGE)/cmd/metricsserver

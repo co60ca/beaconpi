@@ -1,3 +1,19 @@
+// Beacon Pi, a edge node system for iBeacons and Edge nodes made of Pi
+// Copyright (C) 2017  Maeve Kennedy
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package beaconpi
 
 import (
@@ -15,6 +31,11 @@ import (
 	"time"
 )
 
+const (
+	TIMEOUT_CHECK_FREQUENCY = 30 * time.Second
+)
+
+// MapConfig is a structure describing how to display the map and limits
 type MapConfig struct {
 	Id    int
 	Title string
@@ -32,6 +53,8 @@ type MapConfig struct {
 	Edges  []int
 }
 
+// TrackingData is a response struct that contains all details about
+// the requested beacon tracking
 type TrackingData struct {
 	FilterID    string
 	RequestTime time.Time
@@ -42,6 +65,7 @@ type TrackingData struct {
 	MapConfig *MapConfig
 }
 
+// TimeSeriesPoint A tuple of Beacon, timestamp and a 2-3 point location
 type TimeSeriesPoint struct {
 	Beacon int
 	Time   time.Time
@@ -49,6 +73,7 @@ type TimeSeriesPoint struct {
 	Location []float64
 }
 
+// FilteredMapLocationRequest is a request object from the web
 type FilteredMapLocationRequest struct {
 	// Previously assigned filter ID
 	FilterID    string
@@ -59,16 +84,21 @@ type FilteredMapLocationRequest struct {
 	Algorithm   string
 }
 
+// filterIdSet wraps a filter ID and a timer for cleanup
 type filterIdSet struct {
 	pfs     map[int]*indoorfilters.PF
 	timeout time.Time
 }
 
+// filterManager wraps a list of filters by their filter ID
 type filterManager struct {
 	sync.Mutex
-	filters map[string]*filterIdSet
+	filters   map[string]*filterIdSet
+	nextCheck time.Time
 }
 
+// fetchLO fetches a large object from the database psql which is missing
+// in the driver
 func fetchLO(db *sql.DB, i int) ([]byte, error) {
 	var res []byte
 	if err := db.QueryRow(`
@@ -82,6 +112,7 @@ func fetchLO(db *sql.DB, i int) ([]byte, error) {
 	return res, nil
 }
 
+// fetchImage is a handler that returns an image for a given map id
 func fetchImage(mp MetricsParameters) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
@@ -132,6 +163,7 @@ func fetchImage(mp MetricsParameters) http.Handler {
 	})
 }
 
+// allMaps simply returns all maps to the caller
 func allMaps(mp MetricsParameters) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
@@ -185,8 +217,11 @@ func allMaps(mp MetricsParameters) http.Handler {
 	})
 }
 
+// filterFunction specifies the interface for a filterFunction in IndoorTracking
 type filterFunction func(*sql.DB, *MapConfig, *FilteredMapLocationRequest) (TrackingData, error)
 
+// filteredMapLocation handles a request an persistance of filters and requests
+// for updates
 func filteredMapLocation(mp MetricsParameters) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		var request FilteredMapLocationRequest
@@ -232,10 +267,15 @@ func filteredMapLocation(mp MetricsParameters) http.Handler {
 	})
 }
 
+// clearTimeouts clears filters that have hit their timeouts
 func (fm *filterManager) clearTimeouts() {
-	fm.Lock()
-	defer fm.Unlock()
 	now := time.Now()
+	if now.Before(fm.nextCheck) {
+		return
+	}
+	fm.Lock()
+	fm.nextCheck = now.Add(TIMEOUT_CHECK_FREQUENCY)
+	defer fm.Unlock()
 	for k, v := range fm.filters {
 		if v.timeout.Before(now) {
 			delete(fm.filters, k)
@@ -245,6 +285,7 @@ func (fm *filterManager) clearTimeouts() {
 
 var clampedPFs filterManager
 
+// particleFilterVelocity handles request for particle filter based indoor location
 func particleFilterVelocity(db *sql.DB, mp *MapConfig,
 	mlr *FilteredMapLocationRequest) (TrackingData, error) {
 	var res TrackingData
@@ -263,7 +304,7 @@ func particleFilterVelocity(db *sql.DB, mp *MapConfig,
 			break
 		}
 		// Filter not set, make new
-		mlr.FilterID = RandBase64(rng, 6)
+		mlr.FilterID = randBase64(rng, 6)
 
 		// Already exists check
 		if _, ok := clampedPFs.filters[mlr.FilterID]; ok {
@@ -328,6 +369,8 @@ func filterClampPFsApply(series []TimeSeriesPoint, filters *filterIdSet) ([]Time
 	return series, nil
 }
 
+// rssiTuples is used to pass a single record with rssi and distance around
+// for processing
 type rssiTuples struct {
 	Beacon int
 	Edge   int
@@ -337,6 +380,8 @@ type rssiTuples struct {
 	Dist float64
 }
 
+// trilatMultiBeacon does trilateration on multiple beacons given our
+// rssi tuples
 // edges matches loc for id of edge
 // rssi must be ordered by beacon, edge (as per the results of fetchAverageRSSI
 func trilatMultiBeacons(rssi []rssiTuples, loc [][]float64, beacons []int,
@@ -399,7 +444,7 @@ func trilatMultiBeacons(rssi []rssiTuples, loc [][]float64, beacons []int,
 	return
 }
 
-// Returns the average RSSI ordered by Beacon, Edge
+// fetchAverageRSSI Returns the average RSSI ordered by Beacon, Edge
 func fetchAverageRSSI(db *sql.DB, beacons []int, edges []int,
 	ts time.Time) ([]rssiTuples, error) {
 	rows, err := db.Query(`select beacon, edge, rssi, distance
@@ -421,6 +466,8 @@ func fetchAverageRSSI(db *sql.DB, beacons []int, edges []int,
 	return result, nil
 }
 
+// fetchEdgeLocations gets the locations of the edges in 3 space and returns
+// them in order by id
 func fetchEdgeLocations(db *sql.DB, edges []int) (loc [][]float64, err error) {
 	rows, err := db.Query(`select x, y, z
         from edge_locations
@@ -444,6 +491,7 @@ func fetchEdgeLocations(db *sql.DB, edges []int) (loc [][]float64, err error) {
 	return
 }
 
+// fetchMapConfig gets the MapConfig data from the DB and decodes the JSON
 func fetchMapConfig(db *sql.DB, id int) (*MapConfig, error) {
 	var (
 		title  string
