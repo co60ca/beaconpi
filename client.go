@@ -38,6 +38,9 @@ import (
 const (
 	TIMEOUT_BEACON_REFRESH = 60
 	TIMEOUT_BEACON         = 2
+	BACKOFF_MAX            = 30 * time.Second
+	BACKOFF_MIN            = 50 * time.Millisecond
+	BACKOFF_MULTIPLIER     = 2
 )
 
 type clientinfo struct {
@@ -128,26 +131,46 @@ func clientLoop(client *clientinfo) {
 	// Map from uuid,major,minor to offset
 	currentbeacons := make(map[string]int)
 
+	var backoff time.Duration
 	log.Println("Start loop")
 	for {
 		var err error
 		for conn == nil {
 			conn, err = tls.Dial("tcp", client.host, client.tlsconf)
 			if err != nil {
+				time.Sleep(backoff)
+				backoff *= BACKOFF_MULTIPLIER
+				if backoff > BACKOFF_MAX {
+					backoff = BACKOFF_MAX
+				}
 				// TODO backoff
 				log.Printf("Failed to open socket, abandoning: %s", err)
-				return
+
+				continue
+			}
+			backoff = BACKOFF_MIN
+			_, err = io.ReadFull(conn, []byte{byte(CURRENT_VERSION)})
+			if err != nil {
+				log.Printf("Failed to write current version to remote %s", err)
+				conn.Close()
+				conn = nil
 			}
 		}
 
 		select {
 		case _ = <-timeruuid.C:
-			requestBeacons(client, conn)
+			if err = requestBeacons(client, conn); err != nil {
+				log.Printf("Error occured, connection killed %s", err)
+				conn = nil
+			}
 
 		case _ = <-timerbeacon.C:
 			log.Println("Sending data to server due to timeout")
 			// Send and reset
-			sendData(client, conn, datapacket)
+			if err = sendData(client, conn, datapacket); err != nil {
+				log.Printf("Error occured, connection killed %s", err)
+				conn = nil
+			}
 			// Reset data
 			currentbeacons = make(map[string]int)
 			datapacket = new(BeaconLogPacket)
@@ -155,6 +178,7 @@ func clientLoop(client *clientinfo) {
 			copy(datapacket.Uuid[:], client.uuid[:])
 
 		case tempbr := <-brs:
+			// Block gets Beacons from beacon log producer
 			beaconstr := tempbr.BeaconData.String()
 			var i int
 			var ok bool
@@ -170,7 +194,10 @@ func clientLoop(client *clientinfo) {
 		}
 		if len(datapacket.Beacons) == MAX_LOGS {
 			log.Println("Sending data to server due to full queue")
-			sendData(client, conn, datapacket)
+			if err = sendData(client, conn, datapacket); err != nil {
+				log.Printf("Error occured, connection killed %s", err)
+				conn = nil
+			}
 			// Reset data
 			currentbeacons = make(map[string]int)
 			datapacket = new(BeaconLogPacket)
