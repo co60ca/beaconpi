@@ -127,7 +127,9 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 	}()
 
 	if version != 0 {
-		_, _ = buff.Write([]byte{uint8(version)})
+		// In version >0 we only print the version once per connection
+		// other than in the flags
+		//		_, _ = buff.Write([]byte{uint8(version)})
 		err = binary.Write(buff, binary.LittleEndian, uint32(len(respbytes)))
 		if err != nil {
 			log.Printf("Failed to write len of response %s", err)
@@ -185,6 +187,11 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 		return
 	}
 
+	// Write the version back
+	_, err = conn.Write([]byte{uint8(version)})
+	if err != nil {
+		log.Printf("Failed to write version", err)
+	}
 	// else use streaming
 	for {
 		var resp BeaconResponsePacket

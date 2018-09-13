@@ -21,10 +21,13 @@ package beaconpi
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
-	"log"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	"io"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -53,18 +56,17 @@ type clientinfo struct {
 
 func StartClient() {
 
-	log.SetFlags(log.Lshortfile)
+	//log.SetFlags(log.Lshortfile)
 	var (
-		servcertfile string
-		clientcertfile string
-		clientkeyfile string
-	  servhost string
-		servport string
-		clientuuid string
+		servcertfile         string
+		clientcertfile       string
+		clientkeyfile        string
+		servhost             string
+		servport             string
+		clientuuid           string
 		timeoutBeaconRefresh int
-		timeoutBeacon int
+		timeoutBeacon        int
 	)
-
 
 	flag.StringVar(&servcertfile, "serv-cert-file", "", "Has trusted keys")
 	flag.StringVar(&clientcertfile, "client-cert-file", "", "")
@@ -92,11 +94,11 @@ func StartClient() {
 	}
 
 	client := clientinfo{
-		tlsconf: conf,
-		host: servhost + ":" + servport,
-		nodes: make(map[string]struct{}),
-		timeoutBeaconRefresh: time.Second*time.Duration(timeoutBeaconRefresh),
-		timeoutBeacon: time.Second*time.Duration(timeoutBeacon),
+		tlsconf:              conf,
+		host:                 servhost + ":" + servport,
+		nodes:                make(map[string]struct{}),
+		timeoutBeaconRefresh: time.Second * time.Duration(timeoutBeaconRefresh),
+		timeoutBeacon:        time.Second * time.Duration(timeoutBeacon),
 	}
 
 	uuiddec, err := hex.DecodeString(clientuuid)
@@ -114,7 +116,10 @@ func clientLoop(client *clientinfo) {
 	brs := make(chan BeaconRecord, 256)
 	go ProcessIBeacons(client, brs)
 	log.Println("Init request beacons")
-	requestBeacons(client)
+
+	var conn *tls.Conn
+
+	requestBeacons(client, conn)
 
 	datapacket := new(BeaconLogPacket)
 	copy(datapacket.Uuid[:], client.uuid[:])
@@ -125,14 +130,24 @@ func clientLoop(client *clientinfo) {
 
 	log.Println("Start loop")
 	for {
+		var err error
+		for conn == nil {
+			conn, err = tls.Dial("tcp", client.host, client.tlsconf)
+			if err != nil {
+				// TODO backoff
+				log.Printf("Failed to open socket, abandoning: %s", err)
+				return
+			}
+		}
+
 		select {
 		case _ = <-timeruuid.C:
-			go requestBeacons(client)
+			requestBeacons(client, conn)
 
 		case _ = <-timerbeacon.C:
 			log.Println("Sending data to server due to timeout")
 			// Send and reset
-			go sendData(client, datapacket)
+			sendData(client, conn, datapacket)
 			// Reset data
 			currentbeacons = make(map[string]int)
 			datapacket = new(BeaconLogPacket)
@@ -155,7 +170,7 @@ func clientLoop(client *clientinfo) {
 		}
 		if len(datapacket.Beacons) == MAX_LOGS {
 			log.Println("Sending data to server due to full queue")
-			go sendData(client, datapacket)
+			sendData(client, conn, datapacket)
 			// Reset data
 			currentbeacons = make(map[string]int)
 			datapacket = new(BeaconLogPacket)
@@ -166,75 +181,106 @@ func clientLoop(client *clientinfo) {
 
 }
 
-func sendData(client *clientinfo, datapacket *BeaconLogPacket) {
-	conn, err := tls.Dial("tcp", client.host, client.tlsconf)
+func handleFatalError(conn *tls.Conn, msg string, err error) error {
+	conn.Close()
 	if err != nil {
-		log.Printf("Failed to open socket, abandoning: %s", err)
-		return
+		return errors.Wrap(err, msg)
 	}
-	defer conn.Close()
-	bytespacket, err := datapacket.MarshalBinary()
-	if err != nil {
-		log.Printf("Failed to marshal binary: %s", err)
-		return
-	}
-	buff := bytes.NewBuffer(bytespacket)
-	_, err = buff.WriteTo(conn)
-	if err != nil {
-		log.Printf("Failed to write to socket: %s", err)
-		return
-	}
-	conn.CloseWrite()
-	buff.Reset()
-	_, err = buff.ReadFrom(conn)
-	if err != nil {
-		log.Printf("Failed to read response from server: %s", err)
-		return
-	}
-
-	readUpdates(client, buff)
+	return errors.New(msg)
 }
 
-func requestBeacons(client *clientinfo) {
+func writeLengthLE32(conn *tls.Conn, buff *bytes.Buffer) error {
+	err := binary.Write(conn, binary.LittleEndian, uint32(buff.Len()))
+	if err != nil {
+		conn.Close()
+		return err
+	}
+	return nil
+}
+
+// Will reset your buffer
+func readFromRemoteOrClose(conn *tls.Conn, buff *bytes.Buffer) error {
+	_, err := io.CopyN(buff, conn, 4)
+	if err != nil {
+		conn.Close()
+		return errors.Wrap(err, "Failed to read length")
+	}
+	var length uint32
+	err = binary.Read(buff, binary.LittleEndian, &length)
+	if err != nil {
+		conn.Close()
+		return errors.Wrap(err, "Failed to decode length")
+	}
+	buff.Reset()
+	_, err = io.CopyN(buff, conn, int64(length))
+	if err != nil {
+		conn.Close()
+		return errors.Wrap(err, "Failed to read data packet")
+	}
+	return nil
+}
+
+func sendData(client *clientinfo, conn *tls.Conn, datapacket *BeaconLogPacket) error {
+	bytespacket, err := datapacket.MarshalBinary()
+	if err != nil {
+		return handleFatalError(conn, "Failed to marshal binary", err)
+	}
+	buff := bytes.NewBuffer(bytespacket)
+	err = writeLengthLE32(conn, buff)
+	if err != nil {
+		return err
+	}
+
+	_, err = buff.WriteTo(conn)
+	if err != nil {
+		return handleFatalError(conn, "Failed to write to socket", err)
+	}
+	//conn.CloseWrite()
+	buff.Reset()
+	//readFromRemoteOrClose(conn *tls.Conn, buff *bytes.Buffer) error {
+	err = readFromRemoteOrClose(conn, buff)
+	if err != nil {
+		return errors.Wrap(err, "Failed to read response to sendData")
+	}
+
+	return readUpdates(client, conn, buff)
+}
+
+func requestBeacons(client *clientinfo, conn *tls.Conn) error {
 	var blp BeaconLogPacket
 	blp.Flags |= REQUEST_BEACON_UPDATES
 	copy(blp.Uuid[:], client.uuid[:])
 	buffer, err := blp.MarshalBinary()
 	if err != nil {
-		log.Fatal("Failed to marshal request message", err)
-		return
+		return handleFatalError(conn, "Failed to marshal request message", err)
 	}
 
-	conn, err := tls.Dial("tcp", client.host, client.tlsconf)
-	if err != nil {
-		log.Printf("Failed to request beacons, abandoning: %s", err)
-		return
-	}
-	defer conn.Close()
 	writer := bytes.NewBuffer(buffer)
+	err = writeLengthLE32(conn, writer)
+	if err != nil {
+		return err
+	}
+
 	_, err = writer.WriteTo(conn)
 	if err != nil {
-		log.Printf("Failed to write to connection abandoning: %s", err)
-		return
+		return handleFatalError(conn, "Failed to write to connection abandoning", err)
 	}
-	conn.CloseWrite()
+	//conn.CloseWrite()
 	reader := writer
 	reader.Reset()
 
 	if _, err = reader.ReadFrom(conn); err != nil {
-		log.Printf("Failed to read from connection, abandoning: %s", err)
-		return
+		return handleFatalError(conn, "Failed to read from connection, abandoning", err)
 	}
-	readUpdates(client, reader)
+	return readUpdates(client, conn, reader)
 }
 
 // For any handling of client responses
-func readUpdates(client *clientinfo, buff *bytes.Buffer) {
+func readUpdates(client *clientinfo, conn *tls.Conn, buff *bytes.Buffer) error {
 	log.Println("Recieved response from server")
 	var brp BeaconResponsePacket
 	if err := brp.UnmarshalBinary(buff.Bytes()); err != nil {
-		log.Printf("Failed to Unmarshal response packet: %s", err)
-		return
+		return handleFatalError(conn, "Failed to Unmarshal response packet", err)
 	}
 	if brp.Flags&RESPONSE_BEACON_UPDATES != 0 {
 		splitnl := strings.Split(brp.Data, "\n")
@@ -247,26 +293,24 @@ func readUpdates(client *clientinfo, buff *bytes.Buffer) {
 		log.Printf("New beacon list: \n%#v", client.nodes)
 		log.Println("Completed parsing response from server")
 	} else if brp.Flags&RESPONSE_SYSTEM != 0 {
-		handleSystem(client, &brp)
+		return handleSystem(client, conn, &brp)
 	}
+	return nil
 }
 
-func handleSystem(client *clientinfo, brp *BeaconResponsePacket) {
+func handleSystem(client *clientinfo, conn *tls.Conn, brp *BeaconResponsePacket) error {
 	cd := strings.SplitN(brp.Data, "\n", 2)
 	if len(cd) != 2 {
-		log.Println("Sent control is invalid", cd, brp.Data)
-		return
+		return handleFatalError(conn, "Sent control is invalid", nil)
 	}
 	_, err := strconv.Atoi(cd[0])
 	if err != nil {
-		log.Println("Sent control is invalid not integer:", cd[0])
-		return
+		return handleFatalError(conn, "Sent control is invalid not integer", nil)
 	}
 	command := cd[1]
 	var cmd []string
 	if err = json.Unmarshal([]byte(command), &cmd); err != nil {
-		log.Println("Sent control: Failed to unmarshal: ", err)
-		return
+		return handleFatalError(conn, "Sent control: Failed to unmarshal: ", err)
 	}
 	var com *exec.Cmd
 	if len(cmd) == 1 {
@@ -287,5 +331,5 @@ func handleSystem(client *clientinfo, brp *BeaconResponsePacket) {
 	datapacket.Flags |= REQUEST_CONTROL_COMPLETE
 	copy(datapacket.Uuid[:], client.uuid[:])
 	datapacket.ControlData = outputstr
-	sendData(client, &datapacket)
+	return sendData(client, conn, &datapacket)
 }
