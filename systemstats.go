@@ -1,12 +1,12 @@
 package beaconpi
 
 import (
-	"net/http"
-	log "github.com/sirupsen/logrus"
-	"encoding/json"
 	"database/sql"
-	"github.com/pkg/errors"
+	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	"net/http"
 )
 
 func jsonResponse(w http.ResponseWriter, results map[string]interface{}) {
@@ -20,7 +20,7 @@ func jsonResponse(w http.ResponseWriter, results map[string]interface{}) {
 }
 
 func quickStats() http.Handler {
-	return http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
 		db, err := dbconfig.openDB()
 		if err != nil {
@@ -32,14 +32,14 @@ func quickStats() http.Handler {
 
 		// Active edges in last 10 minutes
 		var (
-			countedges int
+			countedges   int
 			countbeacons int
 		)
 
 		type edges struct {
-			Title string
-			Room string
-			Location string
+			Title       string
+			Room        string
+			Location    string
 			Description string
 		}
 		var inactEdges []edges
@@ -55,8 +55,8 @@ func quickStats() http.Handler {
 		for rowsedge.Next() {
 			var t edges
 			var desc sql.NullString
-			if err := rowsedge.Scan(&t.Title, &t.Room, &t.Location, 
-					&desc); err != nil {
+			if err := rowsedge.Scan(&t.Title, &t.Room, &t.Location,
+				&desc); err != nil {
 				log.Errorf("Failed while scanning edges %s", err)
 				http.Error(w, "Server failure", 500)
 				return
@@ -82,7 +82,7 @@ func quickStats() http.Handler {
 
 		type ibeacons struct {
 			Label string
-			Uuid string
+			Uuid  string
 			Major int
 			Minor int
 		}
@@ -107,24 +107,24 @@ func quickStats() http.Handler {
 		}
 		jsonResponse(w, map[string]interface{}{
 			"InactiveBeacons": inactivebeacons,
-			"InactiveEdges": inactEdges,
-			"EdgeCount": countedges,
-			"InaEdgeCount": len(inactEdges),
-			"BeaconCount": countbeacons,
-			"InaBeaconCount": len(inactivebeacons),
+			"InactiveEdges":   inactEdges,
+			"EdgeCount":       countedges,
+			"InaEdgeCount":    len(inactEdges),
+			"BeaconCount":     countbeacons,
+			"InaBeaconCount":  len(inactivebeacons),
 		})
 		return
 	})
 }
 
 func GetBeacons() http.Handler {
-	return http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
 		db, err := dbconfig.openDB()
 		if err != nil {
-				log.Infof("Error opening DB", err)
-				http.Error(w, "Server failure", 500)
-				return
+			log.Infof("Error opening DB", err)
+			http.Error(w, "Server failure", 500)
+			return
 		}
 		defer db.Close()
 
@@ -133,14 +133,14 @@ func GetBeacons() http.Handler {
 			from ibeacons
 			order by label`)
 		if err != nil {
-				log.Infof("Failed while quering beacons %s", err)
-				http.Error(w, "Server failure", 500)
-				return
+			log.Infof("Failed while quering beacons %s", err)
+			http.Error(w, "Server failure", 500)
+			return
 		}
-		type ibeacon struct{
-			Id int
+		type ibeacon struct {
+			Id    int
 			Label string
-			Uuid string
+			Uuid  string
 			Major int
 			Minor int
 		}
@@ -150,7 +150,7 @@ func GetBeacons() http.Handler {
 		for rows.Next() {
 			var b ibeacon
 			if err = rows.Scan(&b.Id, &b.Label, &b.Uuid, &b.Major,
-					&b.Minor); err != nil {
+				&b.Minor); err != nil {
 				log.Errorf("Failed to scan beacons in GetBeacons %s", err)
 				http.Error(w, "Server failure", 500)
 				return
@@ -165,13 +165,13 @@ func GetBeacons() http.Handler {
 }
 
 func GetEdges() http.Handler {
-	return http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
 		db, err := dbconfig.openDB()
 		if err != nil {
-				log.Infof("Error opening DB", err)
-				http.Error(w, "Server failure", 500)
-				return
+			log.Infof("Error opening DB", err)
+			http.Error(w, "Server failure", 500)
+			return
 		}
 		defer db.Close()
 
@@ -180,33 +180,33 @@ func GetEdges() http.Handler {
 			from edge_node
 			order by title`)
 		if err != nil {
-				log.Errorf("Failed while quering edges %s", err)
-				http.Error(w, "Server failure", 500)
-				return
+			log.Errorf("Failed while quering edges %s", err)
+			http.Error(w, "Server failure", 500)
+			return
 		}
-		type edge struct{
-			Id int
-			Uuid string
-			Title string
-			Room string
-			Location string
+		type edge struct {
+			Id          int
+			Uuid        string
+			Title       string
+			Room        string
+			Location    string
 			Description string
-      Bias float64
-      Gamma float64
+			Bias        float64
+			Gamma       float64
 		}
 		var outdata []edge
 
 		for rows.Next() {
 			var edge edge
-      var description sql.NullString
-			if err = rows.Scan(&edge.Id, &edge.Uuid, &edge.Title, 
-					&edge.Room, &edge.Location, &description,
-          &edge.Bias, &edge.Gamma); err != nil {
+			var description sql.NullString
+			if err = rows.Scan(&edge.Id, &edge.Uuid, &edge.Title,
+				&edge.Room, &edge.Location, &description,
+				&edge.Bias, &edge.Gamma); err != nil {
 				log.Errorf("Failed to scan edges in GetEdges %s", err)
 				http.Error(w, "Server failure", 500)
 				return
 			}
-      edge.Description = description.String
+			edge.Description = description.String
 			outdata = append(outdata, edge)
 		}
 		jsonResponse(w, map[string]interface{}{
@@ -227,15 +227,15 @@ func validateLen(pass error, field interface{}, fieldn string, minlen int) error
 	case string:
 		if len(v) < minlen {
 			return errors.New(
-				fmt.Sprintf("Field %s was too short %d < %d, (value %v)", 
-				fieldn, len(v), minlen, field))
+				fmt.Sprintf("Field %s was too short %d < %d, (value %v)",
+					fieldn, len(v), minlen, field))
 		}
 		return nil
 	case []interface{}:
 		if len(v) < minlen {
 			return errors.New(
-				fmt.Sprintf("Field %s was too short %d < %d, (value %v)", 
-				fieldn, len(v), minlen, field))
+				fmt.Sprintf("Field %s was too short %d < %d, (value %v)",
+					fieldn, len(v), minlen, field))
 		}
 		return nil
 	}
@@ -243,17 +243,17 @@ func validateLen(pass error, field interface{}, fieldn string, minlen int) error
 }
 
 func ModEdge() http.Handler {
-	return http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
-		input := struct{
-			Id int
-			Uuid string
-			Title string
-			Room string
-			Location string
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		input := struct {
+			Id          int
+			Uuid        string
+			Title       string
+			Room        string
+			Location    string
 			Description string
-      Bias float64
-      Gamma float64
-			Option string
+			Bias        float64
+			Gamma       float64
+			Option      string
 		}{}
 		dec := json.NewDecoder(req.Body)
 		err := dec.Decode(&input)
@@ -262,7 +262,7 @@ func ModEdge() http.Handler {
 			http.Error(w, "Invalid Request", 400)
 			return
 		}
-		if (input.Option != "rem") {
+		if input.Option != "rem" {
 			err = validateLen(nil, input.Uuid, "Uuid", 16)
 			err = validateLen(err, input.Title, "Title", 1)
 			err = validateLen(err, input.Room, "Room", 1)
@@ -278,23 +278,23 @@ func ModEdge() http.Handler {
 		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
 		db, err := dbconfig.openDB()
 		if err != nil {
-				log.Errorf("Error opening DB %s", err)
-				http.Error(w, "Server failure", 500)
-				return
+			log.Errorf("Error opening DB %s", err)
+			http.Error(w, "Server failure", 500)
+			return
 		}
 		defer db.Close()
 		switch input.Option {
 		case "new":
 			_, err = db.Exec(`insert into edge_node (uuid, title, room, location,
 					description, bias, gamma) values ($1, $2, $3, $4, $5, $6, $7)`,
-          input.Uuid, input.Title, input.Room, input.Location, 
-          input.Description, input.Bias, input.Gamma)
+				input.Uuid, input.Title, input.Room, input.Location,
+				input.Description, input.Bias, input.Gamma)
 		case "mod":
 			_, err = db.Exec(`update edge_node set 
 					(uuid, title, room, location, description, bias, gamma) = 
 					($1, $2, $3, $4, $5, $6, $7) where id = $8`, input.Uuid, input.Title,
-					input.Room, input.Location, input.Description, input.Bias,
-          input.Gamma, input.Id)
+				input.Room, input.Location, input.Description, input.Bias,
+				input.Gamma, input.Id)
 		case "rem":
 			_, err = db.Exec(`delete from edge_node
 					where id = $1`, input.Id)
@@ -312,18 +312,18 @@ func ModEdge() http.Handler {
 		jsonResponse(w, map[string]interface{}{
 			"Success": true,
 		})
-    return
+		return
 	})
 }
 
 func ModBeacon() http.Handler {
-	return http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
-		input := struct{
-			Id int
-			Label string
-			Uuid string
-			Major int
-			Minor int
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		input := struct {
+			Id     int
+			Label  string
+			Uuid   string
+			Major  int
+			Minor  int
 			Option string
 		}{}
 		dec := json.NewDecoder(req.Body)
@@ -334,13 +334,13 @@ func ModBeacon() http.Handler {
 			return
 		}
 
-		if (len(input.Option) != 3) {
+		if len(input.Option) != 3 {
 			log.Infof("Option invalid in ModBeacon given \"%s\"", input.Option)
 			http.Error(w, "Invalid Request", 400)
 			return
 		}
 
-		if (input.Option != "rem") {
+		if input.Option != "rem" {
 			err = validateLen(nil, input.Label, "Label", 1)
 			err = validateLen(err, input.Option, "Option", 3)
 			if err != nil {
@@ -352,22 +352,22 @@ func ModBeacon() http.Handler {
 		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
 		db, err := dbconfig.openDB()
 		if err != nil {
-				log.Errorf("Error opening DB %s", err)
-				http.Error(w, "Server failure", 500)
-				return
+			log.Errorf("Error opening DB %s", err)
+			http.Error(w, "Server failure", 500)
+			return
 		}
 		defer db.Close()
 		switch input.Option {
 		case "new":
 			_, err = db.Exec(`insert into ibeacons
 				(label, uuid, major, minor) values
-				($1, $2, $3, $4)`, input.Label, input.Uuid, 
+				($1, $2, $3, $4)`, input.Label, input.Uuid,
 				input.Major, input.Minor)
-				
+
 		case "mod":
 			_, err = db.Exec(`update ibeacons
 				set (label, uuid, major, minor) =
-				($1, $2, $3, $4) where id = $5`, input.Label, input.Uuid, 
+				($1, $2, $3, $4) where id = $5`, input.Label, input.Uuid,
 				input.Major, input.Minor, input.Id)
 		case "rem":
 			_, err = db.Exec(`delete from ibeacons

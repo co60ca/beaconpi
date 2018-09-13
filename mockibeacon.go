@@ -1,20 +1,21 @@
 package beaconpi
 
 import (
-	"fmt"
-	"encoding/hex"
-	"encoding/binary"
 	"bytes"
-	"io"
-	"encoding/json"
-	"time"
-	"errors"
-	"math/rand"
 	crand "crypto/rand"
-	"gonum.org/v1/gonum/stat/distuv"
-	"math"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
 	log "github.com/sirupsen/logrus"
+	"gonum.org/v1/gonum/stat/distuv"
+	"io"
+	"math"
+	"math/rand"
+	"time"
 )
+
 // This module is designed to be able to mock hcidump with realistic
 // looking data
 
@@ -25,10 +26,10 @@ const (
 
 type MockConfig struct {
 	Beacons []MockBeacon
-	Edges []MockEdge
+	Edges   []MockEdge
 	// For simplicity I provide all Edges data but give a selector, this
 	// lets multiple running producers share the same config file
-	EdgeSelected int
+	EdgeSelected  int
 	PathLossModel PathmodelParams
 	// Noise added to regular operation at RSSI, or distance for MODE_MODEL
 	StdDevNoise float64
@@ -36,13 +37,13 @@ type MockConfig struct {
 	RandomEventK float64
 	// Event offset sample StdDev
 	RandomEventStdDev float64
-	Mode int
+	Mode              int
 }
 
 type MockBeacon struct {
 	BeaconRecord
 	// In ms
-	Delay float64
+	Delay    float64
 	Location []float64
 }
 
@@ -73,8 +74,8 @@ func ReadMockConfiguration(r io.Reader) (*MockConfig, error) {
 		}
 	}
 	decoder = json.NewDecoder(r2)
-	
-	if err := decoder.Decode(&uuidstruct) ; err != nil {
+
+	if err := decoder.Decode(&uuidstruct); err != nil {
 		return nil, errors.New("Failed to read configuration UUID decode " + err.Error())
 	}
 	for i, v := range uuidstruct.Beacons {
@@ -84,7 +85,7 @@ func ReadMockConfiguration(r io.Reader) (*MockConfig, error) {
 		}
 		copy(output.Beacons[i].Uuid[:], data)
 	}
-	
+
 	return &output, nil
 }
 
@@ -94,7 +95,7 @@ func euclideanDist(v1, v2 []float64) float64 {
 	}
 	sum := 0.0
 	for i, _ := range v1 {
-		sum += math.Pow(v1[i] - v2[i], 2)
+		sum += math.Pow(v1[i]-v2[i], 2)
 	}
 	return math.Sqrt(sum)
 }
@@ -103,17 +104,17 @@ func (conf *MockConfig) generateRecord(rng *rand.Rand, beacon, edge int, eventbi
 	out := &BeaconRecord{}
 	copy(out.Uuid[:], conf.Beacons[beacon].Uuid[:])
 	out.Major, out.Minor = conf.Beacons[beacon].Major, conf.Beacons[beacon].Minor
-	switch conf.Mode { 
-		case MODE_RANDOM:
-			// Random data around -50dbm
-			out.Rssi = int16(-50 + rng.NormFloat64() * conf.StdDevNoise)
-		case MODE_MODEL:
-			dist := euclideanDist(conf.Beacons[beacon].Location, conf.Edges[edge].Location)
-			log.Infof("Actual distance: %v\n", dist)
-			dist += eventbias 
-			// TODO(mae) redo this out.Rssi = int16(pathLossExpectedRssi(dist, conf.PathLossModel.Bias, conf.PathLossModel.Gamma) + rng.NormFloat64() * conf.StdDevNoise)
-			log.Infof("Testing RSSI: %v\n", out.Rssi)
-	} 
+	switch conf.Mode {
+	case MODE_RANDOM:
+		// Random data around -50dbm
+		out.Rssi = int16(-50 + rng.NormFloat64()*conf.StdDevNoise)
+	case MODE_MODEL:
+		dist := euclideanDist(conf.Beacons[beacon].Location, conf.Edges[edge].Location)
+		log.Infof("Actual distance: %v\n", dist)
+		dist += eventbias
+		// TODO(mae) redo this out.Rssi = int16(pathLossExpectedRssi(dist, conf.PathLossModel.Bias, conf.PathLossModel.Gamma) + rng.NormFloat64() * conf.StdDevNoise)
+		log.Infof("Testing RSSI: %v\n", out.Rssi)
+	}
 	out.Datetime = time.Now()
 	return out
 }
@@ -121,7 +122,7 @@ func (conf *MockConfig) generateRecord(rng *rand.Rand, beacon, edge int, eventbi
 func eventNextTime(k float64) time.Duration {
 	// Uses its own rng
 	dist := distuv.Poisson{Lambda: k}
-	return time.Duration(int64(float64(time.Second)*dist.Rand()))
+	return time.Duration(int64(float64(time.Second) * dist.Rand()))
 }
 
 func (conf *MockConfig) generateBeaconRecords(out chan *BeaconRecord) {
@@ -135,12 +136,12 @@ func (conf *MockConfig) generateBeaconRecords(out chan *BeaconRecord) {
 	rng := rand.New(rand.NewSource(seed))
 	var timers []*time.Ticker
 	for _, v := range conf.Beacons {
-		timers = append(timers, time.NewTicker(time.Duration(int64(float64(time.Millisecond) * v.Delay))))
+		timers = append(timers, time.NewTicker(time.Duration(int64(float64(time.Millisecond)*v.Delay))))
 	}
 
 	// Event
 	eventtimer := time.After(eventNextTime(conf.RandomEventK))
-	var eventendtimer <- chan time.Time
+	var eventendtimer <-chan time.Time
 	var offsetevent float64
 
 	for {
@@ -148,19 +149,19 @@ func (conf *MockConfig) generateBeaconRecords(out chan *BeaconRecord) {
 
 		// Check for event changes
 		select {
-		case <- eventtimer:
+		case <-eventtimer:
 			// Event end timer
-			seconds := float64(time.Second)*(rng.NormFloat64() * 3 + 10)
+			seconds := float64(time.Second) * (rng.NormFloat64()*3 + 10)
 			// Minimum 3 seconds
-			seconds = math.Max(seconds, float64(time.Second) * 3)
+			seconds = math.Max(seconds, float64(time.Second)*3)
 
 			eventendtimer = time.After(time.Duration(int64(seconds)))
 
 			// Offset calculation, always +tv
-			offsetevent = rng.NormFloat64()*conf.RandomEventStdDev 
+			offsetevent = rng.NormFloat64() * conf.RandomEventStdDev
 			offsetevent = math.Abs(offsetevent)
 			log.Infof("Event started %vs, offset: %v\n", time.Duration(int64(seconds)).Seconds(), offsetevent)
-		case <- eventendtimer:
+		case <-eventendtimer:
 			fmt.Println("Event ended")
 			eventtimer = time.After(eventNextTime(conf.RandomEventK))
 			offsetevent = 0.0
@@ -169,19 +170,19 @@ func (conf *MockConfig) generateBeaconRecords(out chan *BeaconRecord) {
 
 		for i, v := range timers {
 			select {
-				case <- v.C:
-					out <- conf.generateRecord(rng, i, conf.EdgeSelected, offsetevent)
-				default:
+			case <-v.C:
+				out <- conf.generateRecord(rng, i, conf.EdgeSelected, offsetevent)
+			default:
 			}
 		}
 	}
 }
 
-func (conf *MockConfig) HCIDump() {	
+func (conf *MockConfig) HCIDump() {
 	generator := make(chan *BeaconRecord, 128)
 	go conf.generateBeaconRecords(generator)
 	for {
-		br := <- generator 
+		br := <-generator
 		fmt.Println(br.String())
 	}
 }
@@ -223,14 +224,13 @@ func (b *BeaconRecord) String() (o string) {
 
 	// every twentyith byte is followed by new line and two spaces
 	o = ">"
-	for i, v := range(b.Bytes()) {
-		if i != 0 && (i % 20) == 0 {
+	for i, v := range b.Bytes() {
+		if i != 0 && (i%20) == 0 {
 			o += "\n  "
 		} else {
 			o += " "
 		}
-		o += fmt.Sprintf("%02X", v) 
+		o += fmt.Sprintf("%02X", v)
 	}
 	return
 }
-

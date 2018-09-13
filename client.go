@@ -36,13 +36,15 @@ import (
 )
 
 const (
-	TIMEOUT_BEACON_REFRESH = 60
-	TIMEOUT_BEACON         = 2
+	// Milliseconds
+	TIMEOUT_BEACON_REFRESH = 60000
+	TIMEOUT_BEACON         = 50
 	BACKOFF_MAX            = 30 * time.Second
 	BACKOFF_MIN            = 50 * time.Millisecond
 	BACKOFF_MULTIPLIER     = 2
 )
 
+// Encapsulates all client data
 type clientinfo struct {
 	sync.Mutex
 
@@ -57,9 +59,9 @@ type clientinfo struct {
 	timeoutBeacon time.Duration
 }
 
+// Main entry point for the client app that is run on the edge devices
 func StartClient() {
 
-	//log.SetFlags(log.Lshortfile)
 	var (
 		servcertfile         string
 		clientcertfile       string
@@ -100,8 +102,8 @@ func StartClient() {
 		tlsconf:              conf,
 		host:                 servhost + ":" + servport,
 		nodes:                make(map[string]struct{}),
-		timeoutBeaconRefresh: time.Second * time.Duration(timeoutBeaconRefresh),
-		timeoutBeacon:        time.Second * time.Duration(timeoutBeacon),
+		timeoutBeaconRefresh: time.Millisecond * time.Duration(timeoutBeaconRefresh),
+		timeoutBeacon:        time.Millisecond * time.Duration(timeoutBeacon),
 	}
 
 	uuiddec, err := hex.DecodeString(clientuuid)
@@ -113,6 +115,8 @@ func StartClient() {
 	clientLoop(&client)
 }
 
+// clientLoop is the hot loop for the beacons it handles communicating with
+// the remote server and creating packets to send over the channel
 func clientLoop(client *clientinfo) {
 	timeruuid := time.NewTicker(client.timeoutBeaconRefresh)
 	timerbeacon := time.NewTicker(client.timeoutBeacon)
@@ -208,6 +212,8 @@ func clientLoop(client *clientinfo) {
 
 }
 
+// handleFatalError returns and error (if available, err == nil just makes
+// a new error with msg) it will also close the tls.Conn
 func handleFatalError(conn *tls.Conn, msg string, err error) error {
 	conn.Close()
 	if err != nil {
@@ -216,6 +222,8 @@ func handleFatalError(conn *tls.Conn, msg string, err error) error {
 	return errors.New(msg)
 }
 
+// writes to the conn the length of the buff before sending, returning
+// and error and closing the channel
 func writeLengthLE32(conn *tls.Conn, buff *bytes.Buffer) error {
 	err := binary.Write(conn, binary.LittleEndian, uint32(buff.Len()))
 	if err != nil {
@@ -247,6 +255,8 @@ func readFromRemoteOrClose(conn *tls.Conn, buff *bytes.Buffer) error {
 	return nil
 }
 
+// sendData sends the current datapacket over the connection handling errors
+// and responses
 func sendData(client *clientinfo, conn *tls.Conn, datapacket *BeaconLogPacket) error {
 	bytespacket, err := datapacket.MarshalBinary()
 	if err != nil {
@@ -273,6 +283,7 @@ func sendData(client *clientinfo, conn *tls.Conn, datapacket *BeaconLogPacket) e
 	return readUpdates(client, conn, buff)
 }
 
+// requestBeacons sends a request for the registered beacons from the server
 func requestBeacons(client *clientinfo, conn *tls.Conn) error {
 	var blp BeaconLogPacket
 	blp.Flags |= REQUEST_BEACON_UPDATES
@@ -325,6 +336,8 @@ func readUpdates(client *clientinfo, conn *tls.Conn, buff *bytes.Buffer) error {
 	return nil
 }
 
+// handleSystem processes any response from the server that
+// contains RESPONSE_SYSTEM flag
 func handleSystem(client *clientinfo, conn *tls.Conn, brp *BeaconResponsePacket) error {
 	cd := strings.SplitN(brp.Data, "\n", 2)
 	if len(cd) != 2 {

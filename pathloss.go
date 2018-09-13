@@ -1,17 +1,17 @@
 package beaconpi
 
 import (
-	"math"
 	"database/sql"
-	"sync"
 	"errors"
 	log "github.com/sirupsen/logrus"
+	"math"
+	"sync"
 )
 
 func pathLossFunction(bias, gamma float64) func(float64) float64 {
 	return func(rssi float64) float64 {
 		log.Info(bias, gamma, rssi)
-		return math.Pow(10, (bias - rssi)/ (10 * gamma))
+		return math.Pow(10, (bias-rssi)/(10*gamma))
 	}
 }
 
@@ -20,11 +20,11 @@ func PathLoss(rssi, bias, gamma float64) float64 {
 }
 
 type PathmodelParams struct {
-	Bias float64
+	Bias  float64
 	Gamma float64
 }
 
-func getModelByEdge(edge int, db*sql.DB) (PathmodelParams, error) {
+func getModelByEdge(edge int, db *sql.DB) (PathmodelParams, error) {
 	var params PathmodelParams
 	err := db.QueryRow(`
 		select bias, gamma

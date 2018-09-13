@@ -1,8 +1,8 @@
 package beaconpi
 
 import (
+	"bytes"
 	"testing"
-  "bytes"
 )
 
 func TestBytes(t *testing.T) {
@@ -15,7 +15,7 @@ func TestBytes(t *testing.T) {
 }
 
 func TestOpenConfig(t *testing.T) {
-  testconf := bytes.NewBufferString(`
+	testconf := bytes.NewBufferString(`
     {"Beacons" :
       [
         {
@@ -44,9 +44,9 @@ func TestOpenConfig(t *testing.T) {
     "RandomEventStdDev": 10,
     "Mode": 0
     }`)
-    conf, err := ReadMockConfiguration(testconf)
-    if err != nil {
-      t.Fatalf("Error when reading Mock configuration: %s", err)
-    }
-    t.Logf("Conf: %#v", conf)
+	conf, err := ReadMockConfiguration(testconf)
+	if err != nil {
+		t.Fatalf("Error when reading Mock configuration: %s", err)
+	}
+	t.Logf("Conf: %#v", conf)
 }

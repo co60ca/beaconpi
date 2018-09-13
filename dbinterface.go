@@ -33,10 +33,13 @@ type dbHandler struct {
 	DataSourceName string
 }
 
+// openDB is a helper to open a connection to the DB
 func (dbh *dbHandler) openDB() (*sql.DB, error) {
 	return sql.Open(dbh.Drivername, dbh.DataSourceName)
 }
 
+// dbAddLogsForBeacons given a packet and edge add the logs for the packet
+// into the database
 func dbAddLogsForBeacons(pack *BeaconLogPacket, edgeid int, db *sql.DB) error {
 	beaconids, err := dbGetIDForBeacons(pack, db)
 	if err != nil {
@@ -72,6 +75,8 @@ func dbAddLogsForBeacons(pack *BeaconLogPacket, edgeid int, db *sql.DB) error {
 	return nil
 }
 
+// dbGetIDForBeacons converts the ID references in the request to integer
+// ids in the DB
 func dbGetIDForBeacons(pack *BeaconLogPacket, db *sql.DB) ([]int, error) {
 	rval := make([]int, len(pack.Beacons))
 	for i, b := range pack.Beacons {
@@ -88,6 +93,7 @@ func dbGetIDForBeacons(pack *BeaconLogPacket, db *sql.DB) ([]int, error) {
 	return rval, nil
 }
 
+// dbGetBeacons returns all Beacons in the database
 func dbGetBeacons(db *sql.DB) ([]BeaconData, error) {
 	rval := make([]BeaconData, 0, 8)
 
@@ -120,6 +126,8 @@ func dbGetBeacons(db *sql.DB) ([]BeaconData, error) {
 	return rval, nil
 }
 
+// dbInsertControlLog accepts a packet containing a Control Log from the edge
+// in the DB with ID edgenodeid and inserts the log
 func dbInsertControlLog(edgenodeid int, packet *BeaconLogPacket, db *sql.DB) error {
 	rows, err := db.Query(`
 		insert into control_log (edgenodeid, data)
@@ -166,6 +174,7 @@ func dbCompleteControl(packet *BeaconLogPacket, db *sql.DB) error {
 	return nil
 }
 
+// dbGetControl sets that the Control Message was completed
 func dbGetControl(packet *BeaconLogPacket, db *sql.DB) (string, error) {
 	edgeid, err := dbCheckUuid(packet.Uuid, db)
 	if err != nil {
@@ -187,6 +196,8 @@ func dbGetControl(packet *BeaconLogPacket, db *sql.DB) (string, error) {
 	return strconv.Itoa(id) + "\n" + data, nil
 }
 
+// updateEdgeLastUpdate updates the last time the edge has been seen for the
+// application for audit purposes
 func updateEdgeLastUpdate(uuid Uuid, db *sql.DB) {
 	_, err := db.Exec(`update edge_node set lastupdate = current_timestamp
 			where uuid = $1`, uuid.String())
@@ -195,7 +206,7 @@ func updateEdgeLastUpdate(uuid Uuid, db *sql.DB) {
 	}
 }
 
-// Returns the ID of the edge
+// dbCheckUuid returns the ID of the edge or returns an error if it doesn't exist
 func dbCheckUuid(uuid Uuid, db *sql.DB) (int, error) {
 	var edgeid int
 	err := db.QueryRow(`

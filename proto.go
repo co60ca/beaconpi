@@ -48,14 +48,15 @@ func (u Uuid) String() string {
 		hex.EncodeToString(u[10:16]))
 }
 
-// 12 Bytes
+// 12 Bytes which represents one time series value
 type BeaconLog struct {
-	Datetime    time.Time
-	Rssi        int16
+	Datetime time.Time
+	Rssi     int16
+	// Index of value within a packet
 	BeaconIndex uint16
 }
 
-// 20 Bytes
+// 20 Bytes corresponding to the iBeacon profile
 type BeaconData struct {
 	Uuid  Uuid `json:"string"`
 	Major uint16
@@ -67,37 +68,60 @@ func (b *BeaconData) String() string {
 }
 
 const (
-	VERSION_MASK              = 0x0F
-	RESPONSE_INVALID          = 0x10
-	RESPONSE_OK               = 0x20
-	RESPONSE_TOOMANY          = 0x40
-	RESPONSE_RESTART          = 0x80
-	RESPONSE_SHUTDOWN         = 0x100
-	RESPONSE_UPDATE           = 0x200
-	RESPONSE_BEACON_UPDATES   = 0x400
+	// binary mask that leaves the version of the packet protocol as is
+	VERSION_MASK = 0x0F
+	// any protocol failures
+	RESPONSE_INVALID = 0x10
+	// request is ok and will complete
+	RESPONSE_OK = 0x20
+	// should be returned if the server is rate limiting the client
+	RESPONSE_TOOMANY = 0x40
+	// the client should restart
+	RESPONSE_RESTART = 0x80
+	// the client should shutdown
+	RESPONSE_SHUTDOWN = 0x100
+	// the client should attempt to update its code and restart
+	RESPONSE_UPDATE = 0x200
+	// the client should accept the beacon list updates sent by the server
+	RESPONSE_BEACON_UPDATES = 0x400
+	// the server is notifying the client there is a problem on its side that
+	// it cannot recover from
 	RESPONSE_INTERNAL_FAILURE = 0x800
-	RESPONSE_SYSTEM           = 0x8000
+	// the client should run the command in its shell
+	RESPONSE_SYSTEM = 0x8000
 	// Requests have only 0xF0 to work with for flags
-	REQUEST_BEACON_UPDATES   = 0x10
-	REQUEST_CONTROL_LOG      = 0x20
+
+	// the client is requesting beacon updates from the server
+	REQUEST_BEACON_UPDATES = 0x10
+	// the client is ending a control log, i.e. the stdout from the system
+	// response
+	REQUEST_CONTROL_LOG = 0x20
+	// the client is signalling that it has completed the control and the
+	// server can stop sending it
 	REQUEST_CONTROL_COMPLETE = 0x40
 )
 
 type BeaconLogPacket struct {
+	// Request flags
 	Flags uint8
 	// Sender uuid
-	Uuid        Uuid
-	Logs        []BeaconLog
-	Beacons     []BeaconData
+	// Edge UUID
+	Uuid    Uuid
+	Logs    []BeaconLog
+	Beacons []BeaconData
+	// Extra unstructed data
 	ControlData string
 }
 
 type BeaconResponsePacket struct {
+	// Response flags
 	Flags uint16
 	//LengthData uint32
+	// Unstructered data
 	Data string
 }
 
+// MarshalBinary implements the encoding.BinaryMarshaler interface.
 // Output is 12 bytes
 func (b *BeaconLog) MarshalBinary() ([]byte, error) {
 	outbuff := make([]byte, 12)
@@ -111,6 +135,7 @@ func (b *BeaconLog) MarshalBinary() ([]byte, error) {
 	return outbuff, nil
 }
 
+// MarshalBinary implements the encoding.BinaryMarshaler interface.
 // Output is 20 bytes
 func (b *BeaconData) MarshalBinary() ([]byte, error) {
 	outbuff := make([]byte, 20)
@@ -123,6 +148,7 @@ func (b *BeaconData) MarshalBinary() ([]byte, error) {
 	return outbuff, nil
 }
 
+// MarshalBinary implements the encoding.BinaryMarshaler interface.
 func (b *BeaconLogPacket) MarshalBinary() ([]byte, error) {
 	buff := new(bytes.Buffer)
 	if len(b.Logs) > MAX_LOGS {
@@ -181,6 +207,7 @@ func (b *BeaconLogPacket) MarshalBinary() ([]byte, error) {
 	return outbuff, nil
 }
 
+// UnmarshalBinary implements the encoding.BinaryMarshaler interface.
 func (b *BeaconLog) UnmarshalBinary(data []byte) error {
 	if len(data) != 12 {
 		return errors.New("Input data buffer not 12 bytes")
@@ -201,6 +228,7 @@ func (b *BeaconLog) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
+// UnmarshalBinary implements the encoding.BinaryMarshaler interface.
 func (b *BeaconData) UnmarshalBinary(data []byte) error {
 	if len(data) != 20 {
 		return errors.New("Input data buffer not 20 bytes")
@@ -284,6 +312,7 @@ func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
+// MarshalBinary implements the encoding.BinaryMarshaler interface.
 func (b *BeaconResponsePacket) MarshalBinary() ([]byte, error) {
 	bb := new(bytes.Buffer)
 	if len(b.Data) > (1 << 30) {
@@ -300,6 +329,7 @@ func (b *BeaconResponsePacket) MarshalBinary() ([]byte, error) {
 	return resp, nil
 }
 
+// UnmarshalBinary implements the encoding.BinaryMarshaler interface.
 func (b *BeaconResponsePacket) UnmarshalBinary(d []byte) error {
 	if len(d) < 6 {
 		return errors.New("Response packet is minimum 6 bytes")
@@ -322,6 +352,7 @@ func (b *BeaconResponsePacket) UnmarshalBinary(d []byte) error {
 	return nil
 }
 
+// Helper function to little endian encode some data i to buffer b or panic
 func littleEndianEncode(b *bytes.Buffer, i interface{}) {
 	b.Reset()
 	err := binary.Write(b, binary.LittleEndian, i)
@@ -330,6 +361,7 @@ func littleEndianEncode(b *bytes.Buffer, i interface{}) {
 	}
 }
 
+// Helper function to little endian decode some data b into i or panic
 func littleEndianDecode(b []byte, i interface{}) error {
 	bb := bytes.NewBuffer(b)
 	return binary.Read(bb, binary.LittleEndian, i)

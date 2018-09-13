@@ -1,24 +1,26 @@
 package beaconpi
 
 import (
-	"net/http"
-	log "github.com/sirupsen/logrus"
 	"encoding/json"
-	"time"
+	"fmt"
 	"github.com/lib/pq"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
-	"fmt"
+	"time"
 )
 
+// getCSV returns a CSV to the requestor of the given times for the requested
+// edges and beacons
 func getCSV() http.Handler {
-	return http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
-		input := struct{
-			Edges []int
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		input := struct {
+			Edges   []int
 			Beacons []int
-			Before string
-			After string
+			Before  string
+			After   string
 		}{}
 		dec := json.NewDecoder(req.Body)
 		if err := dec.Decode(&input); err != nil {
@@ -28,7 +30,7 @@ func getCSV() http.Handler {
 		}
 
 		before, err := time.Parse(time.RFC3339, input.Before)
-		var after time.Time 
+		var after time.Time
 		if err == nil {
 			after, err = time.Parse(time.RFC3339, input.After)
 		}
@@ -41,7 +43,7 @@ func getCSV() http.Handler {
 		}
 		if after.After(before) {
 			log.Infof("Before earlier than after")
-			jsonResponse(w, map[string]interface{} {
+			jsonResponse(w, map[string]interface{}{
 				"Error": "Before must be after After",
 			})
 			return
@@ -49,7 +51,7 @@ func getCSV() http.Handler {
 
 		if len(input.Edges) == 0 || len(input.Beacons) == 0 {
 			log.Infof("One of edges or beacons was empty")
-			jsonResponse(w, map[string]interface{} {
+			jsonResponse(w, map[string]interface{}{
 				"Error": "Both edges and beacons must be non zero length",
 			})
 			return
@@ -58,9 +60,9 @@ func getCSV() http.Handler {
 		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
 		db, err := dbconfig.openDB()
 		if err != nil {
-				log.Infof("Error opening DB", err)
-				http.Error(w, "Server failure", 500)
-				return
+			log.Infof("Error opening DB", err)
+			http.Error(w, "Server failure", 500)
+			return
 		}
 		defer db.Close()
 
@@ -89,8 +91,8 @@ func getCSV() http.Handler {
 			os.Remove(filecsv.Name())
 		}()
 
-		if _, err = fmt.Fprintf(filecsv, 
-				"\"datetime\"\t\"beacon\"\t\"edge\"\t\"rssi\"\n"); err != nil {
+		if _, err = fmt.Fprintf(filecsv,
+			"\"datetime\"\t\"beacon\"\t\"edge\"\t\"rssi\"\n"); err != nil {
 			log.Infof("Failure to write to file csv", err)
 			http.Error(w, "Server failure", 500)
 			return
@@ -98,19 +100,19 @@ func getCSV() http.Handler {
 
 		for rows.Next() {
 			var (
-				date time.Time
+				date   time.Time
 				beacon int
-				edge int
-				rssi int
+				edge   int
+				rssi   int
 			)
 			if err = rows.Scan(&date, &beacon, &edge, &rssi); err != nil {
 				log.Infof("Error scanning", err)
-        http.Error(w, "Server failure", 500)
-        return
+				http.Error(w, "Server failure", 500)
+				return
 			}
 			if _, err = fmt.Fprintf(filecsv,
-					"\"%v\"\t%d\t%d\t%d\n",
-					date.Format(time.RFC3339Nano), beacon, edge, rssi); err != nil {
+				"\"%v\"\t%d\t%d\t%d\n",
+				date.Format(time.RFC3339Nano), beacon, edge, rssi); err != nil {
 				log.Infof("Failure to write to file csv", err)
 				http.Error(w, "Server failure", 500)
 				return
@@ -119,9 +121,9 @@ func getCSV() http.Handler {
 
 		// Seek to the begining of the file and write it to the output
 		if _, err = filecsv.Seek(0, os.SEEK_SET); err != nil {
-				log.Infof("Failed to seek to pos 0", err)
-				http.Error(w, "Server failure", 500)
-				return
+			log.Infof("Failed to seek to pos 0", err)
+			http.Error(w, "Server failure", 500)
+			return
 		}
 		w.Header().Set("Content-Type", "octet-stream")
 		if _, err = io.Copy(w, filecsv); err != nil {

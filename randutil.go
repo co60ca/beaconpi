@@ -1,13 +1,13 @@
 package beaconpi
 
 import (
-  crand "crypto/rand"
-  "math/rand"
-  "encoding/binary"
-  "encoding/base64"
+	crand "crypto/rand"
+	"encoding/base64"
+	"encoding/binary"
+	"math/rand"
 )
 
-func initRand() (*rand.Rand) {
+func initRand() *rand.Rand {
 	randbyte := make([]byte, 4)
 	_, err := crand.Read(randbyte)
 	if err != nil {
@@ -15,18 +15,18 @@ func initRand() (*rand.Rand) {
 	}
 	seed, _ := binary.Varint(randbyte)
 	rng := rand.New(rand.NewSource(seed))
-  return rng
+	return rng
 }
 
-func getRand() (*rand.Rand) {
-  rng := initRand()
-  return rng
+func getRand() *rand.Rand {
+	rng := initRand()
+	return rng
 }
 
 // Size is orders of 3 bytes to make sure there is no padding for convience
-// bytes is 3*sets 
+// bytes is 3*sets
 func RandBase64(rng *rand.Rand, sets int) string {
-  b := make([]byte, sets*3)
-  rng.Read(b)
-  return base64.StdEncoding.EncodeToString(b)
+	b := make([]byte, sets*3)
+	rng.Read(b)
+	return base64.StdEncoding.EncodeToString(b)
 }
