@@ -268,7 +268,6 @@ func readFromRemoteOrClose(conn *tls.Conn, buff *bytes.Buffer) error {
 		return errors.Wrap(err, "Failed to read length")
 	}
 	var length uint32
-	datatempdbg := buff.Bytes()
 	err = binary.Read(buff, binary.LittleEndian, &length)
 	if err != nil {
 		conn.Close()
@@ -328,7 +327,7 @@ func requestBeacons(client *clientinfo, conn *tls.Conn) error {
 		return err
 	}
 
-	b, err := writer.WriteTo(conn)
+	_, err := writer.WriteTo(conn)
 	if err != nil {
 		return handleFatalError(conn, "Failed to write to connection abandoning", err)
 	}
