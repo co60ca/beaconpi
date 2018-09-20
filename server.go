@@ -384,7 +384,11 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 	log.Println("Packet from ", pack.Uuid, edgeid)
 	if err = dbAddLogsForBeacons(pack, edgeid, db); err != nil {
 		log.Println("Error when checking in logs for beacon", err)
+		resp.Flags |= RESPONSE_INTERNAL_FAILURE
+		writeResponseAndClose(conn, resp, errorClose, version)
 		return
 	}
+	resp.Flags |= RESPONSE_OK
+	writeResponseAndClose(conn, resp, successClose, version)
 
 }
