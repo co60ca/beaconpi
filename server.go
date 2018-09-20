@@ -228,7 +228,7 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 			writeResponseAndClose(conn, &resp, true, version)
 			return
 		}
-		log.Debug("Read message bytes=%d", buff.Len())
+		log.Debugf("Read message bytes=%d", buff.Len())
 
 		var message BeaconLogPacket
 		err = message.UnmarshalBinary(databuff.Bytes())
