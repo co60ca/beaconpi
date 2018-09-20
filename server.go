@@ -299,6 +299,7 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 	errorClose := true
 	// Version 0 should close on success, Version > 0 uses stream connections
 	successClose := version == 0 || false
+	log.Debugf("On Success close? %b", successClose)
 
 	db, err := db.openDB()
 	if err != nil {
