@@ -28,4 +28,5 @@ build/beaconclient: $(ALLGO)
 	go build -o $@ $(CLIENTFLAGS) $(PACKAGE)/cmd/beaconclient
 build/metricsserv: $(ALLGO)
 	$(SERVERENV) \
-	go build -o $@ $(SERVERFLAGS) $(PACKAGE)/cmd/metricsserver
+	# metrics flags includes metrics only files
+	go build -o $@ $(SERVERFLAGS) --tags=metrics $(PACKAGE)/cmd/metricsserver

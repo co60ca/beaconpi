@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// metricsserv builds cause problems with other binaries due to inclusion
+// of packages that require python3
+// +build metrics
+
 package beaconpi
 
 import (
