@@ -191,7 +191,7 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 		handlePacket(conn, &resp, &message)
 		return
 	}
-
+	log.Debug("Recieved connection with version", version)
 	// Write the version back
 	_, err = conn.Write([]byte{uint8(version)})
 	if err != nil {
