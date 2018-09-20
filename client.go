@@ -345,7 +345,6 @@ func requestBeacons(client *clientinfo, conn *tls.Conn) error {
 
 // For any handling of client responses
 func readUpdates(client *clientinfo, conn *tls.Conn, buff *bytes.Buffer) error {
-	log.Println("Recieved response from server")
 	var brp BeaconResponsePacket
 	if err := brp.UnmarshalBinary(buff.Bytes()); err != nil {
 		return handleFatalError(conn, "Failed to Unmarshal response packet", err)
