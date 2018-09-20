@@ -145,13 +145,12 @@ func clientLoop(client *clientinfo) {
 			log.Infof("Creating new connection: host: %s", client.host)
 			conn, err = tls.Dial("tcp", client.host, client.tlsconf)
 			if err != nil {
-				log.Info("Back off", backoff)
+				log.Info("Back off ", backoff)
 				time.Sleep(backoff)
 				backoff *= BACKOFF_MULTIPLIER
 				if backoff > BACKOFF_MAX {
 					backoff = BACKOFF_MAX
 				}
-				// TODO backoff
 				log.Printf("Failed to open socket, abandoning: %s", err)
 				continue
 			}
