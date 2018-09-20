@@ -141,12 +141,11 @@ func clientLoop(client *clientinfo) {
 	log.Println("Start loop")
 	for {
 		var err error
-		log.Debug("Top of loop")
 		for conn == nil {
-			log.Debugf("Creating new connection: host: %s", client.host)
+			log.Infof("Creating new connection: host: %s", client.host)
 			conn, err = tls.Dial("tcp", client.host, client.tlsconf)
 			if err != nil {
-				log.Debug("Back off", backoff)
+				log.Info("Back off", backoff)
 				time.Sleep(backoff)
 				backoff *= BACKOFF_MULTIPLIER
 				if backoff > BACKOFF_MAX {
@@ -157,7 +156,6 @@ func clientLoop(client *clientinfo) {
 				continue
 			}
 			backoff = BACKOFF_MIN
-			log.Debug("Writing version to channel")
 			vbuff := bytes.NewBuffer([]byte{byte(CURRENT_VERSION)})
 			_, err = io.CopyN(conn, vbuff, 1)
 			if err != nil {
@@ -191,18 +189,14 @@ func clientLoop(client *clientinfo) {
 			}
 		}
 
-		log.Debug("Start Select")
 		select {
 		case _ = <-timeruuid.C:
-			log.Debug("timeruuid")
 			if err = requestBeacons(client, conn); err != nil {
 				log.Printf("Error occured, connection killed %s", err)
 				conn = nil
 			}
 
 		case _ = <-timerbeacon.C:
-			log.Debug("timerbeacon")
-			log.Println("Sending data to server due to timeout")
 			// Send and reset
 			if err = sendData(client, conn, datapacket); err != nil {
 				log.Printf("Error occured, connection killed %s", err)
@@ -215,7 +209,6 @@ func clientLoop(client *clientinfo) {
 			copy(datapacket.Uuid[:], client.uuid[:])
 
 		case tempbr := <-brs:
-			log.Debug("Get beacon from beacon log producer")
 			// Block gets Beacons from beacon log producer
 			beaconstr := tempbr.BeaconData.String()
 			var i int
@@ -269,7 +262,6 @@ func writeLengthLE32(conn *tls.Conn, buff *bytes.Buffer) error {
 
 // Will reset your buffer
 func readFromRemoteOrClose(conn *tls.Conn, buff *bytes.Buffer) error {
-	log.Debug("Read length")
 	_, err := io.CopyN(buff, conn, 4)
 	if err != nil {
 		conn.Close()
@@ -283,13 +275,11 @@ func readFromRemoteOrClose(conn *tls.Conn, buff *bytes.Buffer) error {
 		return errors.Wrap(err, "Failed to decode length")
 	}
 	buff.Reset()
-	log.Debugf("Read data %v %x", length, datatempdbg)
 	_, err = io.CopyN(buff, conn, int64(length))
 	if err != nil {
 		conn.Close()
 		return errors.Wrap(err, "Failed to read data packet")
 	}
-	log.Debug("Read data done")
 	return nil
 }
 
@@ -301,13 +291,11 @@ func sendData(client *clientinfo, conn *tls.Conn, datapacket *BeaconLogPacket) e
 		return handleFatalError(conn, "Failed to marshal binary", err)
 	}
 	buff := bytes.NewBuffer(bytespacket)
-	log.Debug("Writing length")
 	err = writeLengthLE32(conn, buff)
 	if err != nil {
 		return err
 	}
 
-	log.Debug("Writing data")
 	_, err = buff.WriteTo(conn)
 	if err != nil {
 		return handleFatalError(conn, "Failed to write to socket", err)
@@ -315,7 +303,6 @@ func sendData(client *clientinfo, conn *tls.Conn, datapacket *BeaconLogPacket) e
 	//conn.CloseWrite()
 	buff.Reset()
 
-	log.Debug("Waiting for response")
 	err = readFromRemoteOrClose(conn, buff)
 	if err != nil {
 		return errors.Wrap(err, "Failed to read response to sendData")
@@ -340,18 +327,15 @@ func requestBeacons(client *clientinfo, conn *tls.Conn) error {
 	if err != nil {
 		return err
 	}
-	log.Debug("Wrote length")
 
 	b, err := writer.WriteTo(conn)
 	if err != nil {
 		return handleFatalError(conn, "Failed to write to connection abandoning", err)
 	}
-	log.Debugf("Wrote message bytes=%d", b)
 	//conn.CloseWrite()
 	reader := writer
 	reader.Reset()
 
-	log.Debug("Waiting for response")
 	err = readFromRemoteOrClose(conn, reader)
 	if err != nil {
 		return handleFatalError(conn, "Failed to read response to sendData", err)
