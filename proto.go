@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"strconv"
 	"time"
 )
@@ -339,7 +339,7 @@ func (b *BeaconResponsePacket) UnmarshalBinary(d []byte) error {
 		return err
 	}
 	if b.Flags&VERSION_MASK >= CURRENT_VERSION {
-		return errors.New("Version of packet is too new, we only support version <= 0")
+		return errors.New("Version of packet is too new, we only support version >= CURRENT_VERISON")
 	}
 
 	var dl uint32

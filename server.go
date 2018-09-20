@@ -231,7 +231,7 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 		log.Debugf("Read message bytes=%d", buff.Len())
 
 		var message BeaconLogPacket
-		err = message.UnmarshalBinary(databuff.Bytes())
+		err = message.UnmarshalBinary(buff.Bytes())
 		if err != nil {
 			log.Printf("Recieved error while unmarshalling %s", err)
 			resp.Flags |= RESPONSE_INVALID
