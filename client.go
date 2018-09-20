@@ -126,6 +126,7 @@ func clientLoop(client *clientinfo) {
 	brs := make(chan BeaconRecord, 256)
 	go processIBeacons(client, brs)
 	log.Println("Init request beacons")
+	first := true
 
 	var conn *tls.Conn
 
@@ -162,6 +163,13 @@ func clientLoop(client *clientinfo) {
 			if err != nil {
 				log.Printf("Failed to write current version to remote %s", err)
 				conn.Close()
+				conn = nil
+			}
+		}
+		if first {
+			first = false
+			if err = requestBeacons(client, conn); err != nil {
+				log.Printf("Error occured, connection killed %s", err)
 				conn = nil
 			}
 		}
