@@ -205,8 +205,8 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 	for {
 		var resp BeaconResponsePacket
 		resp.Flags |= uint16(version)
-		buff, err := readBytesOrCancel(conn, 4, &resp, version, end)
 		log.Debug("Reading length of message")
+		buff, err := readBytesOrCancel(conn, 4, &resp, version, end)
 		if err != nil {
 			log.Printf("Recieved error while reading length %s", err)
 			return
