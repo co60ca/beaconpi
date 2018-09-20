@@ -136,7 +136,7 @@ func clientLoop(client *clientinfo) {
 	// Map from uuid,major,minor to offset
 	currentbeacons := make(map[string]int)
 
-	var backoff time.Duration = BACKOFF_MIN * time.Second
+	var backoff time.Duration = BACKOFF_MIN
 	log.Println("Start loop")
 	for {
 		var err error
