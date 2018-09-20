@@ -309,7 +309,7 @@ func requestBeacons(client *clientinfo, conn *tls.Conn) error {
 	}
 	log.Debug("Wrote length")
 
-	b, err = writer.WriteTo(conn)
+	b, err := writer.WriteTo(conn)
 	if err != nil {
 		return handleFatalError(conn, "Failed to write to connection abandoning", err)
 	}
