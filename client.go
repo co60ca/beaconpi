@@ -156,6 +156,7 @@ func clientLoop(client *clientinfo) {
 				continue
 			}
 			backoff = BACKOFF_MIN
+			log.Debug("Writing version to channel")
 			_, err = io.ReadFull(conn, []byte{byte(CURRENT_VERSION)})
 			if err != nil {
 				log.Printf("Failed to write current version to remote %s", err)
