@@ -164,8 +164,24 @@ func clientLoop(client *clientinfo) {
 				log.Printf("Failed to write current version to remote %s", err)
 				conn.Close()
 				conn = nil
+				return
+			}
+			vbuff.Reset()
+			_, err = io.CopyN(vbuff, conn, 1)
+			if err != nil {
+				log.Print("Failed to get server version")
+				conn.Close()
+				conn = nil
+				return
+			}
+			if uint8(vbuff.Bytes()[0]) != CURRENT_VERSION {
+				log.Println("Server failed to answer with same version")
+				conn.Close()
+				conn = nil
+				return
 			}
 		}
+
 		if first {
 			first = false
 			if err = requestBeacons(client, conn); err != nil {
