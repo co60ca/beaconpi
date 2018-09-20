@@ -136,7 +136,6 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 	}()
 
 	if version != 0 {
-		log.Debug("writeResponseAndClose: Writing response length")
 		// In version >0 we only print the version once per connection
 		// other than in the flags
 		//		_, _ = buff.Write([]byte{uint8(version)})
