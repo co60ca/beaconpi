@@ -130,6 +130,7 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 	buff := new(bytes.Buffer)
 	defer func() {
 		if close {
+			log.Debug("Connection closed")
 			conn.Close()
 		}
 	}()
