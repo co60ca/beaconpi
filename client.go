@@ -69,6 +69,7 @@ func StartClient() {
 		clientuuid           string
 		timeoutBeaconRefresh int
 		timeoutBeacon        int
+		logDebug             bool
 	)
 
 	flag.StringVar(&servcertfile, "serv-cert-file", "", "Has trusted keys")
@@ -79,6 +80,7 @@ func StartClient() {
 	flag.StringVar(&servport, "serv-port", DEFAULT_PORT, "")
 	flag.IntVar(&timeoutBeaconRefresh, "timeout-beacon-refresh", TIMEOUT_BEACON_REFRESH, "timeout for beacon data rerequest from server to keep freshness")
 	flag.IntVar(&timeoutBeacon, "timeout-beacon", TIMEOUT_BEACON, "timeout for beacon sightings before pushing to the server")
+	flag.BoolVar(&logDebug, "debug", false, "enable more logging")
 	flag.Parse()
 
 	certpool := LoadFileToCert(servcertfile)
@@ -109,6 +111,10 @@ func StartClient() {
 		log.Fatal("uuid is not valid hex, do not include -")
 	}
 	copy(client.uuid[:], uuiddec)
+	if logDebug {
+		log.SetLevel(log.DebugLevel)
+	}
+
 	clientLoop(&client)
 }
 
