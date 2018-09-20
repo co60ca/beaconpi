@@ -128,6 +128,7 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 	if err != nil {
 		log.Println("Failed to marshal data to response:", err)
 	}
+	buff := new(bytes.Buffer)
 	defer func() {
 		if close {
 			log.Debug("Connection closed")
@@ -139,9 +140,11 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 		log.Debug("writeResponseAndClose: Writing response length")
 		// In version >0 we only print the version once per connection
 		// other than in the flags
-
+		//		_, _ = buff.Write([]byte{uint8(version)})
 		log.Debugf("Length: %d", uint32(len(respbytes)))
-		err = binary.Write(conn, binary.LittleEndian, uint32(len(respbytes)))
+		err = binary.Write(buff, binary.LittleEndian, uint32(len(respbytes)))
+		log.Debugf("Data: %x", buff.Bytes())
+		buff.WriteTo(conn)
 		if err != nil {
 			log.Printf("Failed to write len of response %s", err)
 			return
