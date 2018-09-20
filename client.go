@@ -321,9 +321,12 @@ func requestBeacons(client *clientinfo, conn *tls.Conn) error {
 	reader := writer
 	reader.Reset()
 
-	if _, err = reader.ReadFrom(conn); err != nil {
-		return handleFatalError(conn, "Failed to read from connection, abandoning", err)
+	log.Debug("Waiting for response")
+	err = readFromRemoteOrClose(conn, reader)
+	if err != nil {
+		return handleFatalError(conn, "Failed to read response to sendData", err)
 	}
+
 	return readUpdates(client, conn, reader)
 }
 
