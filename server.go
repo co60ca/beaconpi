@@ -54,7 +54,7 @@ func GetFlags() (out ServerConfig) {
 		"Required: The database datasource name, may be multiple tokes")
 	debug := flag.Bool("debug", false, "extra logging")
 	flag.Parse()
-	if debug {
+	if *debug {
 		log.SetLevel(log.DebugLevel)
 	}
 	if out.X509cert == "" || out.X509key == "" ||
