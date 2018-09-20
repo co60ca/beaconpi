@@ -142,7 +142,7 @@ func clientLoop(client *clientinfo) {
 		var err error
 		log.Debug("Top of loop")
 		for conn == nil {
-			log.Debug("Creating new connection", client.host, client.tlsconf)
+			log.Debugf("Creating new connection: host: %s, conf %v", client.host, client.tlsconf)
 			conn, err = tls.Dial("tcp", client.host, client.tlsconf)
 			if err != nil {
 				log.Debug("Back off", backoff)
