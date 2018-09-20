@@ -124,7 +124,6 @@ func StartServer(x509cert, x509key, drivername, dsn string, end chan struct{}) {
 // a BeaconResponsePacket followed by length then packet ect..
 func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool, version uint8) {
 	respbytes, err := resp.MarshalBinary()
-	log.Debug("writeResponseAndClose: Marshalled")
 	if err != nil {
 		log.Println("Failed to marshal data to response:", err)
 	}
@@ -141,23 +140,18 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 		// In version >0 we only print the version once per connection
 		// other than in the flags
 		//		_, _ = buff.Write([]byte{uint8(version)})
-		log.Debugf("Length: %d", uint32(len(respbytes)))
 		err = binary.Write(buff, binary.LittleEndian, uint32(len(respbytes)))
-		log.Debugf("Data: %x", buff.Bytes())
 		buff.WriteTo(conn)
 		if err != nil {
 			log.Printf("Failed to write len of response %s", err)
 			return
 		}
-		log.Debug("writeResponseAndClose: Writing response length done")
 	}
-	log.Debug("writeResponseAndClose: Writing data")
 	n, err := conn.Write(respbytes)
 	if n != len(respbytes) || err != nil {
 		log.Printf("Failed to write response. Len written: %d of %d"+
 			". Error was %s", n, len(respbytes), err)
 	}
-	log.Debug("writeResponseAndClose: Writing data done")
 }
 
 // handleConnection handles the connection once established
@@ -204,7 +198,6 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 		handlePacket(conn, &resp, &message)
 		return
 	}
-	log.Debug("Recieved connection with version", version)
 	// Write the version back
 	_, err = conn.Write([]byte{uint8(version)})
 	if err != nil {
@@ -214,13 +207,11 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 	for {
 		var resp BeaconResponsePacket
 		resp.Flags |= uint16(version)
-		log.Debug("Reading length of message")
 		buff, err := readBytesOrCancel(conn, 4, &resp, version, end)
 		if err != nil {
 			log.Printf("Recieved error while reading length %s", err)
 			return
 		}
-		log.Debug("Read length of message")
 
 		var length uint32
 		if err = binary.Read(buff, binary.LittleEndian, &length); err != nil {
@@ -237,7 +228,6 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 			writeResponseAndClose(conn, &resp, true, version)
 			return
 		}
-		log.Debugf("Read message bytes=%d", buff.Len())
 
 		var message BeaconLogPacket
 		err = message.UnmarshalBinary(buff.Bytes())
@@ -307,7 +297,6 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 	errorClose := true
 	// Version 0 should close on success, Version > 0 uses stream connections
 	successClose := version == 0 || false
-	log.Debugf("On Success close? %b", successClose)
 
 	db, err := db.openDB()
 	if err != nil {
@@ -335,9 +324,7 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 		}
 
 		resp.Flags |= RESPONSE_BEACON_UPDATES
-		log.Debug("Writing response")
 		writeResponseAndClose(conn, resp, successClose, version)
-		log.Debug("Writing response done")
 		return
 	}
 
