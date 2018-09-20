@@ -327,7 +327,7 @@ func requestBeacons(client *clientinfo, conn *tls.Conn) error {
 		return err
 	}
 
-	_, err := writer.WriteTo(conn)
+	_, err = writer.WriteTo(conn)
 	if err != nil {
 		return handleFatalError(conn, "Failed to write to connection abandoning", err)
 	}
