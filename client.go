@@ -123,8 +123,6 @@ func clientLoop(client *clientinfo) {
 
 	var conn *tls.Conn
 
-	requestBeacons(client, conn)
-
 	datapacket := new(BeaconLogPacket)
 	copy(datapacket.Uuid[:], client.uuid[:])
 	datapacket.Flags = CURRENT_VERSION
