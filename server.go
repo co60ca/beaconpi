@@ -124,6 +124,7 @@ func StartServer(x509cert, x509key, drivername, dsn string, end chan struct{}) {
 // a BeaconResponsePacket followed by length then packet ect..
 func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool, version uint8) {
 	respbytes, err := resp.MarshalBinary()
+	log.Debug("writeResponseAndClose: Marshalled")
 	if err != nil {
 		log.Println("Failed to marshal data to response:", err)
 	}
@@ -136,6 +137,7 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 	}()
 
 	if version != 0 {
+		log.Debug("writeResponseAndClose: Writing response length")
 		// In version >0 we only print the version once per connection
 		// other than in the flags
 		//		_, _ = buff.Write([]byte{uint8(version)})
@@ -144,12 +146,15 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 			log.Printf("Failed to write len of response %s", err)
 			return
 		}
+		log.Debug("writeResponseAndClose: Writing response length done")
 	}
+	log.Debug("writeResponseAndClose: Writing data")
 	n, err := conn.Write(respbytes)
 	if n != len(respbytes) || err != nil {
 		log.Printf("Failed to write response. Len written: %d of %d"+
 			". Error was %s", n, len(respbytes), err)
 	}
+	log.Debug("writeResponseAndClose: Writing data done")
 }
 
 // handleConnection handles the connection once established
