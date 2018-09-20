@@ -281,6 +281,7 @@ func readBytesOrCancel(conn net.Conn, n int64,
 				return nil, err
 			}
 		}
+		n -= copyn
 	}
 	return buff, nil
 }
