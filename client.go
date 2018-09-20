@@ -145,6 +145,7 @@ func clientLoop(client *clientinfo) {
 			log.Debug("Creating new connection")
 			conn, err = tls.Dial("tcp", client.host, client.tlsconf)
 			if err != nil {
+				log.Debug("Back off", backoff)
 				time.Sleep(backoff)
 				backoff *= BACKOFF_MULTIPLIER
 				if backoff > BACKOFF_MAX {
