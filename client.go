@@ -272,18 +272,21 @@ func sendData(client *clientinfo, conn *tls.Conn, datapacket *BeaconLogPacket) e
 		return handleFatalError(conn, "Failed to marshal binary", err)
 	}
 	buff := bytes.NewBuffer(bytespacket)
+	log.Debug("Writing length")
 	err = writeLengthLE32(conn, buff)
 	if err != nil {
 		return err
 	}
 
+	log.Debug("Writing data")
 	_, err = buff.WriteTo(conn)
 	if err != nil {
 		return handleFatalError(conn, "Failed to write to socket", err)
 	}
 	//conn.CloseWrite()
 	buff.Reset()
-	//readFromRemoteOrClose(conn *tls.Conn, buff *bytes.Buffer) error {
+
+	log.Debug("Waiting for response")
 	err = readFromRemoteOrClose(conn, buff)
 	if err != nil {
 		return errors.Wrap(err, "Failed to read response to sendData")
