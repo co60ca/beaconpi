@@ -255,7 +255,7 @@ func (b *BeaconLogPacket) UnmarshalBinary(data []byte) error {
 	pointer += 1
 	// Check for version 1
 	if b.Flags&VERSION_MASK <= CURRENT_VERSION {
-		return errors.Errorsf("This version of the library only supports version %d"+
+		return errors.Errorf("This version of the library only supports version %d"+
 			" of the protocol, a higher version was presented", CURRENT_VERSION)
 	}
 	copy(b.Uuid[:], data[pointer:pointer+16])
