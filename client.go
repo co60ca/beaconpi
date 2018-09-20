@@ -171,6 +171,7 @@ func clientLoop(client *clientinfo) {
 			if err = requestBeacons(client, conn); err != nil {
 				log.Printf("Error occured, connection killed %s", err)
 				conn = nil
+				continue
 			}
 		}
 
