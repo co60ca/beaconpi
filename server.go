@@ -362,6 +362,7 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 		if err != nil {
 			// log.Printf("DEBUG: Failed to get control, passing: %s", err)
 		} else {
+			log.Print("Sending control", control)
 			resp.Data = control
 			resp.Flags |= RESPONSE_SYSTEM
 		}
@@ -378,6 +379,7 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 	}
 	// Update the time of the given edge that we have confirmed
 	updateEdgeLastUpdate(pack.Uuid, db)
+	log.Debug("Packet from ", pack.Uuid, edgeid)
 	if err = dbAddLogsForBeacons(pack, edgeid, db); err != nil {
 		log.Println("Error when checking in logs for beacon", err)
 		resp.Flags |= RESPONSE_INTERNAL_FAILURE

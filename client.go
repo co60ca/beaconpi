@@ -125,7 +125,6 @@ func clientLoop(client *clientinfo) {
 	timerbeacon := time.NewTicker(client.timeoutBeacon)
 	brs := make(chan BeaconRecord, 256)
 	go processIBeacons(client, brs)
-	log.Println("Init request beacons")
 	first := true
 
 	var conn *tls.Conn
@@ -180,6 +179,7 @@ func clientLoop(client *clientinfo) {
 		}
 
 		if first {
+			log.Println("Init request beacons")
 			first = false
 			if err = requestBeacons(client, conn); err != nil {
 				log.Printf("Error occured, connection killed %s", err)

@@ -70,7 +70,7 @@ func dbAddLogsForBeacons(pack *BeaconLogPacket, edgeid int, db *sql.DB) error {
 		rows.Close()
 	}
 	if len(data) != 0 {
-		log.Printf("Completed inserting %d records", len(data))
+		log.Debugf("Completed inserting %d records", len(data))
 	}
 	return nil
 }
