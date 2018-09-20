@@ -327,7 +327,9 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 		}
 
 		resp.Flags |= RESPONSE_BEACON_UPDATES
+		log.Debug("Writing response")
 		writeResponseAndClose(conn, resp, successClose, version)
+		log.Debug("Writing response done")
 		return
 	}
 
