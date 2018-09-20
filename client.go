@@ -134,7 +134,9 @@ func clientLoop(client *clientinfo) {
 	log.Println("Start loop")
 	for {
 		var err error
+		log.Debug("Top of loop")
 		for conn == nil {
+			log.Debug("Creating new connection")
 			conn, err = tls.Dial("tcp", client.host, client.tlsconf)
 			if err != nil {
 				time.Sleep(backoff)
@@ -144,7 +146,6 @@ func clientLoop(client *clientinfo) {
 				}
 				// TODO backoff
 				log.Printf("Failed to open socket, abandoning: %s", err)
-
 				continue
 			}
 			backoff = BACKOFF_MIN
@@ -156,14 +157,17 @@ func clientLoop(client *clientinfo) {
 			}
 		}
 
+		log.Debug("Start Select")
 		select {
 		case _ = <-timeruuid.C:
+			log.Debug("timeruuid")
 			if err = requestBeacons(client, conn); err != nil {
 				log.Printf("Error occured, connection killed %s", err)
 				conn = nil
 			}
 
 		case _ = <-timerbeacon.C:
+			log.Debug("timerbeacon")
 			log.Println("Sending data to server due to timeout")
 			// Send and reset
 			if err = sendData(client, conn, datapacket); err != nil {
@@ -177,6 +181,7 @@ func clientLoop(client *clientinfo) {
 			copy(datapacket.Uuid[:], client.uuid[:])
 
 		case tempbr := <-brs:
+			log.Debug("Get beacon from beacon log producer")
 			// Block gets Beacons from beacon log producer
 			beaconstr := tempbr.BeaconData.String()
 			var i int
