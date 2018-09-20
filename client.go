@@ -272,6 +272,7 @@ func readFromRemoteOrClose(conn *tls.Conn, buff *bytes.Buffer) error {
 		conn.Close()
 		return errors.Wrap(err, "Failed to read data packet")
 	}
+	log.Debug("Read data done")
 	return nil
 }
 
