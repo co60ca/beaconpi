@@ -266,7 +266,7 @@ func readFromRemoteOrClose(conn *tls.Conn, buff *bytes.Buffer) error {
 		return errors.Wrap(err, "Failed to decode length")
 	}
 	buff.Reset()
-	log.Debug("Read data")
+	log.Debugf("Read data %v", length)
 	_, err = io.CopyN(buff, conn, int64(length))
 	if err != nil {
 		conn.Close()
