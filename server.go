@@ -224,14 +224,18 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 		buff, err = readBytesOrCancel(conn, int64(length), &resp, version, end)
 		if err != nil {
 			log.Printf("Recieved error while reading packet %s", err)
+			resp.Flags |= RESPONSE_INVALID
+			writeResponseAndClose(conn, &resp, true, version)
 			return
 		}
-		log.Debug("Read message")
+		log.Debug("Read message bytes=%d", buff.Len())
 
 		var message BeaconLogPacket
 		err = message.UnmarshalBinary(databuff.Bytes())
 		if err != nil {
 			log.Printf("Recieved error while unmarshalling %s", err)
+			resp.Flags |= RESPONSE_INVALID
+			writeResponseAndClose(conn, &resp, true, version)
 			return
 
 		}
