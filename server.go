@@ -378,7 +378,6 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 	}
 	// Update the time of the given edge that we have confirmed
 	updateEdgeLastUpdate(pack.Uuid, db)
-	log.Println("Packet from ", pack.Uuid, edgeid)
 	if err = dbAddLogsForBeacons(pack, edgeid, db); err != nil {
 		log.Println("Error when checking in logs for beacon", err)
 		resp.Flags |= RESPONSE_INTERNAL_FAILURE
