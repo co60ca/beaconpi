@@ -252,6 +252,7 @@ func readBytesOrCancel(conn net.Conn, n int64,
 
 	buff := new(bytes.Buffer)
 	// Set a deadline for 5 seconds from now
+	var timeoutcount int
 	for n > 0 {
 		conn.SetReadDeadline(time.Now().Add(time.Second * 2))
 		copyn, err := io.CopyN(buff, conn, n)
@@ -260,6 +261,10 @@ func readBytesOrCancel(conn net.Conn, n int64,
 			case net.Error:
 				// pass
 				if v.Timeout() {
+					timeoutcount += 1
+					if timeoutcount > 10 {
+						return nil, errors.New("Failed to read from conn in 20 seconds")
+					}
 					// If timeout check if the channel is closed, if so
 					// return
 					select {
