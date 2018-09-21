@@ -55,8 +55,10 @@ func dbAddLogsForBeacons(pack *BeaconLogPacket, edgeid int, db *sql.DB) error {
 		Rssi     int
 		Beaconid int
 	}, len(pack.Logs))
+
+	// Line is gaurunteed by guard at top
+	log.Debug("Time on beacon recieved ", pack.Logs[0])
 	for i, logv := range pack.Logs {
-		log.Debug("Time on beacon recieved ", logv.Datetime)
 		data[i].Datetime = logv.Datetime
 		data[i].Rssi = int(logv.Rssi)
 		// TODO(mae) additional error logging here for ids that don't exist
@@ -83,6 +85,7 @@ func dbAddLogsForBeacons(pack *BeaconLogPacket, edgeid int, db *sql.DB) error {
 // dbGetIDForBeacons converts the ID references in the request to integer
 // ids in the DB
 func dbGetIDForBeacons(pack *BeaconLogPacket, db *sql.DB) ([]int, error) {
+	//TODO(mae) optimize this
 	rval := make([]int, len(pack.Beacons))
 	for i, b := range pack.Beacons {
 		var tempid int

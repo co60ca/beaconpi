@@ -362,7 +362,7 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 		if err != nil {
 			// log.Printf("DEBUG: Failed to get control, passing: %s", err)
 		} else {
-			log.Print("Sending control", control)
+			log.Debugf("Sending control %s", control)
 			resp.Data = control
 			resp.Flags |= RESPONSE_SYSTEM
 		}
