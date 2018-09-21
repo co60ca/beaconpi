@@ -41,6 +41,10 @@ func (dbh *dbHandler) openDB() (*sql.DB, error) {
 // dbAddLogsForBeacons given a packet and edge add the logs for the packet
 // into the database
 func dbAddLogsForBeacons(pack *BeaconLogPacket, edgeid int, db *sql.DB) error {
+	if len(pack.Logs) == 0 {
+		return nil
+	}
+
 	beaconids, err := dbGetIDForBeacons(pack, db)
 	if err != nil {
 		return err
