@@ -194,8 +194,10 @@ func clientLoop(client *clientinfo) {
 				log.Printf("Error occured, connection killed %s", err)
 				conn = nil
 			}
-
 		case _ = <-timerbeacon.C:
+			if len(datapacket.Logs) == 0 {
+				continue
+			}
 			// Send and reset
 			if err = sendData(client, conn, datapacket); err != nil {
 				log.Printf("Error occured, connection killed %s", err)

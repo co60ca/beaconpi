@@ -56,7 +56,7 @@ func dbAddLogsForBeacons(pack *BeaconLogPacket, edgeid int, db *sql.DB) error {
 		Beaconid int
 	}, len(pack.Logs))
 	for i, logv := range pack.Logs {
-		log.Debug("Time on beacon recieved", logv.Datetime)
+		log.Debug("Time on beacon recieved ", logv.Datetime)
 		data[i].Datetime = logv.Datetime
 		data[i].Rssi = int(logv.Rssi)
 		// TODO(mae) additional error logging here for ids that don't exist
