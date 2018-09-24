@@ -68,7 +68,6 @@ func GetFlags() (out ServerConfig) {
 // StartServer is the main interface for the BeaconServer
 func StartServer(x509cert, x509key, drivername, dsn string, end chan struct{}) {
 	// Logging
-	log.SetLevel(log.DebugLevel)
 	customFormatter := new(log.TextFormatter)
 	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
 	customFormatter.FullTimestamp = true
