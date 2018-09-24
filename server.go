@@ -263,6 +263,8 @@ func readBytesOrCancel(conn net.Conn, n int64,
 				if v.Timeout() {
 					timeoutcount += 1
 					if timeoutcount > 10 {
+						resp.Flags |= RESPONSE_INVALID
+						writeResponseAndClose(conn, resp, true, version)
 						return nil, errors.New("Failed to read from conn in 20 seconds")
 					}
 					// If timeout check if the channel is closed, if so
@@ -270,6 +272,8 @@ func readBytesOrCancel(conn net.Conn, n int64,
 					select {
 					case _, _ = <-end:
 						log.Println("Shutdown requested")
+						resp.Flags |= RESPONSE_INTERNAL_FAILURE
+						writeResponseAndClose(conn, resp, true, version)
 						return nil, errors.New("Shutdown requested")
 					default:
 					}
