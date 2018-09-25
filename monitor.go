@@ -66,7 +66,9 @@ func sendQueue() {
 
 	msg.SetBody("text/html", buff.String())
 	if count > 0 {
+		log.Info("Sending message")
 		err := d.DialAndSend(msg)
+		log.Info("Sent message")
 		if err != nil {
 			log.Error("Failed to send message with", err)
 		}
