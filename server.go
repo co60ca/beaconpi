@@ -180,6 +180,9 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 	}
 	// else use streaming
 	for {
+		resp = BeaconResponsePacket{}
+		resp.Flags |= uint16(version)
+
 		buff, err := readBytesOrCancel(conn, 4, &resp, version, end)
 		if err != nil {
 			raiseErr(RESPONSE_INVALID, errors.Wrap(err, "Failed to read length"))
