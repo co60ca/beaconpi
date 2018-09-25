@@ -22,7 +22,6 @@ package beaconpi
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/co60ca/webauth"
 	"github.com/lib/pq"
 	"github.com/rs/cors"
@@ -30,11 +29,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-)
-
-const (
-	TIMEOUT_EDGE_SYNC = time.Second * 10
-	EDGE_SYNC_MAX     = 10.0
 )
 
 // MetricsParameters represents required data for a metrics server
@@ -47,6 +41,7 @@ type MetricsParameters struct {
 	SMTPPort       int
 	SMTPUser       string
 	SMTPPassphrase string
+	MonitorEmail   string
 }
 
 var mp MetricsParameters
@@ -124,22 +119,6 @@ func beaconShortHistory() http.Handler {
 			return
 		}
 	})
-}
-
-func metricsBackgroundTasks() {
-	tickES := time.Tick(TIMEOUT_EDGE_SYNC)
-	for {
-		select {
-		case _ = <-tickES:
-			if timediffsec, edge, err := syncCheck(); err != nil {
-				log.Error("Failed to sync check", err)
-			} else if timediffsec > EDGE_SYNC_MAX {
-				sendWarning(fmt.Sprintf(`Edge %d has a time difference of %f
-                    which is outside allowable tolerance %f`, edge, timediffsec, EDGE_SYNC_MAX))
-			}
-
-		}
-	}
 }
 
 // MetricStart is the main entry point of the metrics server

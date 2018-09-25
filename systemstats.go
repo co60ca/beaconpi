@@ -423,7 +423,7 @@ func syncCheck() (timedeltaseconds float64, edgenodeid int, err error) {
 	dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
 	db, err := dbconfig.openDB()
 	if err != nil {
-		return 0.0, 0, errors.Errorf("Error opening DB %s", err)
+		return 0.0, 0, errors.Wrap(err, "Error opening DB")
 	}
 	defer db.Close()
 	query := `select a.edgenodeid as edge, 
@@ -443,13 +443,13 @@ func changedActiveEdges() (inactEdges []int, err error) {
         select id from inactive_edges()
     `)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed while getting inactive edges")
+		return nil, errors.Wrap(err, "Failed while getting inactive edges")
 	}
 	defer rowsedge.Close()
 	for rowsedge.Next() {
 		var t int
 		if err := rowsedge.Scan(&t); err != nil {
-			return nil, errors.Wrapf(err, "Failed while scanning edges")
+			return nil, errors.Wrap(err, "Failed while scanning edges")
 		}
 		inactEdges = append(inactEdges, t)
 	}

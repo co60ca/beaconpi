@@ -212,6 +212,103 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 	}
 }
 
+// handlePacket operates on a single packet inserting data
+// and sending back status and commands
+func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
+	pack *BeaconLogPacket) {
+	version := pack.Flags & VERSION_MASK
+	errorClose := true
+	// Version 0 should close on success, Version > 0 uses stream connections
+	successClose := false
+
+	responseHandle := func(flags uint16, err error) {
+		resp.Flags |= flags
+		if err != nil {
+			log.Println("handlePacket failed with: %s", err)
+			writeResponseAndClose(conn, resp, errorClose, version)
+		}
+		writeResponseAndClose(conn, resp, successClose, version)
+	}
+
+	db, err := db.openDB()
+	if err != nil {
+		responseHandle(RESPONSE_INTERNAL_FAILURE, errors.Wrap(err, "Failed to open DB"))
+		return
+	}
+	defer db.Close()
+
+	// Client request beacon updates
+	if pack.Flags&REQUEST_BEACON_UPDATES != 0 {
+		beacons, err := dbGetBeacons(db)
+		if err != nil {
+			responseHandle(RESPONSE_INTERNAL_FAILURE, errors.Wrap(err, "Failed to get beacons"))
+			return
+		}
+		for _, b := range beacons {
+			resp.Data += "\n" + b.String()
+		}
+		if len(resp.Data) > 1 {
+			resp.Data = resp.Data[1:]
+		}
+		responseHandle(RESPONSE_BEACON_UPDATES, nil)
+		return
+	}
+
+	// Client requested command and control
+	if pack.Flags&REQUEST_CONTROL_LOG != 0 {
+		edgeid, err := dbCheckUuid(pack.Uuid, db)
+		if err != nil {
+			err = errors.Wrapf(err, "Error occured edgeid \"%s\" was not found in db", pack.Uuid)
+			responseHandle(RESPONSE_INTERNAL_FAILURE, err)
+			return
+		}
+		if err = dbInsertControlLog(edgeid, pack, db); err != nil {
+			responseHandle(RESPONSE_INTERNAL_FAILURE, err)
+		} else {
+			responseHandle(RESPONSE_OK, nil)
+		}
+		return
+
+		// Client is phoning home to give the results of the command and control
+	} else if pack.Flags&REQUEST_CONTROL_COMPLETE != 0 {
+		err = dbCompleteControl(pack, db)
+		if err != nil {
+			responseHandle(RESPONSE_INTERNAL_FAILURE, errors.Wrap(err, "Failed to update control"))
+			return
+		}
+		responseHandle(RESPONSE_OK, nil)
+	} else {
+		control, err := dbGetControl(pack, db)
+		if err != nil {
+			// log.Printf("DEBUG: Failed to get control, passing: %s", err)
+		} else {
+			log.Infof("Sending control %s", control)
+			resp.Data = control
+			resp.Flags |= RESPONSE_SYSTEM
+		}
+		responseHandle(RESPONSE_OK, nil)
+	}
+
+	var edgeid int
+
+	edgeid, err = dbCheckUuid(pack.Uuid, db)
+	if err != nil {
+		err = errors.Wrapf(err, "Error occured edgeid \"%s\" was not found in db", pack.Uuid)
+		responseHandle(RESPONSE_INVALID, err)
+		return
+	}
+
+	// Update the time of the given edge that we have confirmed
+	updateEdgeLastUpdate(pack.Uuid, db)
+	log.Debug("Packet from ", pack.Uuid, edgeid)
+	if err = dbAddLogsForBeacons(pack, edgeid, db); err != nil {
+		err = errors.Wrap(err, "Error when checking in logs for beacon")
+		responseHandle(RESPONSE_INTERNAL_FAILURE, err)
+		return
+	}
+	responseHandle(RESPONSE_OK, nil)
+}
+
 // writeBytesOrCancel
 func writeBytesOrCancel(conn net.Conn, buff *bytes.Buffer, resp *BeaconResponsePacket, version uint8, end chan struct{}) error {
 	var timeoutcount int
@@ -308,101 +405,4 @@ func readBytesOrCancel(conn net.Conn, n int64,
 		n -= copyn
 	}
 	return buff, nil
-}
-
-// handlePacket operates on a single packet inserting data
-// and sending back status and commands
-func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
-	pack *BeaconLogPacket) {
-	version := pack.Flags & VERSION_MASK
-	errorClose := true
-	// Version 0 should close on success, Version > 0 uses stream connections
-	successClose := false
-
-	responseHandle := func(flags uint16, err error) {
-		resp.Flags |= flags
-		if err != nil {
-			log.Println("handlePacket failed with: %s", err)
-			writeResponseAndClose(conn, resp, errorClose, version)
-		}
-		writeResponseAndClose(conn, resp, successClose, version)
-	}
-
-	db, err := db.openDB()
-	if err != nil {
-		responseHandle(RESPONSE_INTERNAL_FAILURE, errors.Wrap(err, "Failed to open DB"))
-		return
-	}
-	defer db.Close()
-
-	// Client request beacon updates
-	if pack.Flags&REQUEST_BEACON_UPDATES != 0 {
-		beacons, err := dbGetBeacons(db)
-		if err != nil {
-			responseHandle(RESPONSE_INTERNAL_FAILURE, errors.Wrap(err, "Failed to get beacons"))
-			return
-		}
-		for _, b := range beacons {
-			resp.Data += "\n" + b.String()
-		}
-		if len(resp.Data) > 1 {
-			resp.Data = resp.Data[1:]
-		}
-		responseHandle(RESPONSE_BEACON_UPDATES, nil)
-		return
-	}
-
-	// Client requested command and control
-	if pack.Flags&REQUEST_CONTROL_LOG != 0 {
-		edgeid, err := dbCheckUuid(pack.Uuid, db)
-		if err != nil {
-			err = errors.Wrapf(err, "Error occured edgeid \"%s\" was not found in db", pack.Uuid)
-			responseHandle(RESPONSE_INTERNAL_FAILURE, err)
-			return
-		}
-		if err = dbInsertControlLog(edgeid, pack, db); err != nil {
-			responseHandle(RESPONSE_INTERNAL_FAILURE, err)
-		} else {
-			responseHandle(RESPONSE_OK, nil)
-		}
-		return
-
-		// Client is phoning home to give the results of the command and control
-	} else if pack.Flags&REQUEST_CONTROL_COMPLETE != 0 {
-		err = dbCompleteControl(pack, db)
-		if err != nil {
-			responseHandle(RESPONSE_INTERNAL_FAILURE, errors.Wrap(err, "Failed to update control"))
-			return
-		}
-		responseHandle(RESPONSE_OK, nil)
-	} else {
-		control, err := dbGetControl(pack, db)
-		if err != nil {
-			// log.Printf("DEBUG: Failed to get control, passing: %s", err)
-		} else {
-			log.Infof("Sending control %s", control)
-			resp.Data = control
-			resp.Flags |= RESPONSE_SYSTEM
-		}
-		responseHandle(RESPONSE_OK, nil)
-	}
-
-	var edgeid int
-
-	edgeid, err = dbCheckUuid(pack.Uuid, db)
-	if err != nil {
-		err = errors.Wrapf(err, "Error occured edgeid \"%s\" was not found in db", pack.Uuid)
-		responseHandle(RESPONSE_INVALID, err)
-		return
-	}
-
-	// Update the time of the given edge that we have confirmed
-	updateEdgeLastUpdate(pack.Uuid, db)
-	log.Debug("Packet from ", pack.Uuid, edgeid)
-	if err = dbAddLogsForBeacons(pack, edgeid, db); err != nil {
-		err = errors.Wrap(err, "Error when checking in logs for beacon")
-		responseHandle(RESPONSE_INTERNAL_FAILURE, err)
-		return
-	}
-	responseHandle(RESPONSE_OK, nil)
 }
