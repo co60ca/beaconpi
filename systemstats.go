@@ -445,7 +445,7 @@ func changedActiveEdges() (inactEdges []int, err error) {
 	}
 	defer db.Close()
 	rowsedge, err := db.Query(`
-        select id from inactive_edges()
+        select id from inactive_edges() order by id
     `)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed while getting inactive edges")
