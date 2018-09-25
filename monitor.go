@@ -27,6 +27,14 @@ func startMonitor() {
 	m.msgqueue = make(chan string, 1024)
 }
 
+func sendInfo(msg string) {
+	if len(msg) < MAX_MONITOR_MSG {
+		log.Infof("Length of msg was %d which was too large %d is the max msg: %s", len(msg), MAX_MONITOR_MSG, msg)
+		return
+	}
+	m.msgqueue <- msg
+}
+
 func sendWarning(msg string) {
 	if len(msg) < MAX_MONITOR_MSG {
 		log.Infof("Length of msg was %d which was too large %d is the max msg: %s", len(msg), MAX_MONITOR_MSG, msg)
@@ -81,6 +89,9 @@ func metricsBackgroundTasks() {
 	startMonitor()
 	tickES := time.Tick(TIMEOUT_EDGE_SYNC)
 	tickSend := time.Tick(TIMEOUT_SEND)
+
+	sendInfo("Server Started")
+	sendQueue()
 
 	inactEdge, err := changedActiveEdges()
 	if err != nil {

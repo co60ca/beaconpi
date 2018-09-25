@@ -19,9 +19,9 @@ create or replace function inactive_beacons(lastx interval default '00:10:00'::i
     END; $$ language plpgsql;
 
 create or replace function inactive_edges(lastx interval default '00:01:00'::interval) 
-  returns table(title varchar(60), room text, location text, description text)
+  returns table(id integer, title varchar(60), room text, location text, description text)
   as $$
-    select title, room, location, description
+    select id, title, room, location, description
     from edge_node
     where lastupdate < current_timestamp - $1 $$
 language SQL;
