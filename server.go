@@ -153,6 +153,7 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 func handleConnection(conn net.Conn, end chan struct{}) {
 	var resp BeaconResponsePacket
 	version := uint8(CURRENT_VERSION)
+	log.Infof("New connection from %s", conn.RemoteAddr())
 
 	raiseErr := func(flags uint16, err error) {
 		log.Printf("handleConnection failed with %s", err)
