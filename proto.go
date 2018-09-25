@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -48,15 +49,17 @@ func (u Uuid) String() string {
 }
 
 func UuidFromString(s string) (Uuid, error) {
-    t := strings.Split(s, "-")
-    t := strings.Join(t, "")
-    b, err := hex.DecodeString(t)
-    if err != nil {
-        return Uuid{}, err
-    } else if len(b) != 16 {
-        return Uuid{}, errors.New("Output length of uuid binary was too long")
-    var res Uuid
-    copy(res[:], b[:])
+	t := strings.Split(s, "-")
+	t2 := strings.Join(t, "")
+	b, err := hex.DecodeString(t2)
+	if err != nil {
+		return Uuid{}, err
+	} else if len(b) != 16 {
+		return Uuid{}, errors.New("Output length of uuid binary was too long")
+	}
+	var res Uuid
+	copy(res[:], b[:])
+	return res, nil
 }
 
 // 12 Bytes which represents one time series value
