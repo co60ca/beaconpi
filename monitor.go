@@ -54,13 +54,15 @@ func sendQueue() {
 	// Drain until empty
 	buff.WriteString("Messages: <br><ol>")
 	count := 0
+
+drain:
 	for {
 		select {
 		case t := <-m.msgqueue:
 			count += 1
 			buff.WriteString(fmt.Sprintf("<li>%s</li>\n", t))
 		default:
-			break
+			break drain
 		}
 	}
 	buff.WriteString("</ol>")
