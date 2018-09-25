@@ -146,6 +146,7 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 		log.Printf("Failed to write response. Len written: %d of %d"+
 			". Error was %s", n, len(respbytes), err)
 	}
+	conn.SetWriteDeadline(time.Time{})
 }
 
 // handleConnection handles the connection once established
