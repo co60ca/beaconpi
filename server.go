@@ -352,6 +352,7 @@ func writeBytesOrCancel(conn net.Conn, buff *bytes.Buffer, resp *BeaconResponseP
 		}
 		n -= copyn
 	}
+	conn.SetWriteDeadline(time.Time{})
 	return nil
 }
 
@@ -404,5 +405,6 @@ func readBytesOrCancel(conn net.Conn, n int64,
 		}
 		n -= copyn
 	}
+	conn.SetReadDeadline(time.Time{})
 	return buff, nil
 }
