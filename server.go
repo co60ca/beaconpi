@@ -115,12 +115,6 @@ func StartServer(x509cert, x509key, drivername, dsn string, end chan struct{}) {
 }
 
 // writeResponseAndClose writes a reponse using the transport protocol
-// which passes version - length delimited messages in version >0
-// and just a message with a close in version 0
-//
-// Therefore the stream is in version >0
-// 1 byte of version, 4 bytes of length, then the remainded is
-// a BeaconResponsePacket followed by length then packet ect..
 func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool, version uint8) {
 	respbytes, err := resp.MarshalBinary()
 	if err != nil {
@@ -134,17 +128,19 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 		}
 	}()
 
-	if version != 0 {
-		// In version >0 we only print the version once per connection
-		// other than in the flags
-		//		_, _ = buff.Write([]byte{uint8(version)})
-		err = binary.Write(buff, binary.LittleEndian, uint32(len(respbytes)))
-		buff.WriteTo(conn)
-		if err != nil {
-			log.Printf("Failed to write len of response %s", err)
-			return
-		}
+	if err = binary.Write(buff, binary.LittleEndian, uint32(len(respbytes))); err != nil {
+		log.Printf("Failed to encode len of response")
+		return
 	}
+
+	conn.SetWriteDeadline(time.Now().Add(time.Second * 2))
+	_, err = buff.WriteTo(conn)
+	if err != nil {
+		log.Printf("Failed to write len of response %s", err)
+		return
+	}
+
+	conn.SetWriteDeadline(time.Now().Add(time.Second * 2))
 	n, err := conn.Write(respbytes)
 	if n != len(respbytes) || err != nil {
 		log.Printf("Failed to write response. Len written: %d of %d"+
@@ -155,84 +151,58 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 // handleConnection handles the connection once established
 func handleConnection(conn net.Conn, end chan struct{}) {
 	databuff := new(bytes.Buffer)
-	// First we need to find out if the packet is version 0 or >0
-	// version 0 starts out with flags, the first byte therefore should
-	// have 0000 in the second half of the first byte in contrast, version >0
-	// has the version as the first byte (lower half) followed by length
+	var resp BeaconResponsePacket
+	version := uint8(CURRENT_VERSION)
+
+	raiseErr := func(flags uint16, err error) {
+		log.Printf("handleConnection failed with %s", err)
+		resp.Flags |= flags
+		writeResponseAndClose(conn, &resp, true, version)
+	}
 
 	// Copy the first byte
-	_, err := io.CopyN(databuff, conn, 1)
+	_, err := readBytesOrCancel(conn, 1, &resp, CURRENT_VERSION, end)
 	if err != nil {
-		var resp BeaconResponsePacket
-		log.Println("Message failed to read with:", err)
-		resp.Flags |= RESPONSE_INVALID
-		// TODO different flags based on the errors
-		writeResponseAndClose(conn, &resp, true /*temp*/, 0)
+		raiseErr(RESPONSE_INVALID, err)
 		return
 	}
-	version := uint8(databuff.Bytes()[0] & VERSION_MASK)
+	version = uint8(databuff.Bytes()[0] & VERSION_MASK)
+	resp.Flags |= uint16(version)
 
-	if version == uint8(0) {
-		var resp BeaconResponsePacket
-		resp.Flags |= uint16(0)
-		var message BeaconLogPacket
-		// Version 0 reads all
-		if _, err = databuff.ReadFrom(conn); err != nil {
-			log.Println("Failed to read from connection:", err)
-			resp.Flags |= RESPONSE_INVALID
-			writeResponseAndClose(conn, &resp, true, 0)
-			return
-		}
-
-		err = message.UnmarshalBinary(databuff.Bytes())
-		if err != nil {
-			log.Println("Failed to parse message with:", err)
-			resp.Flags |= RESPONSE_INVALID
-			writeResponseAndClose(conn, &resp, true, 0)
-			return
-		}
-		// We respond with a version the same as the sender
-
-		handlePacket(conn, &resp, &message)
-		return
-	}
 	// Write the version back
-	_, err = conn.Write([]byte{uint8(version)})
-	if err != nil {
-		log.Printf("Failed to write version", err)
+	if err = writeBytesOrCancel(conn, bytes.NewBuffer([]byte{uint8(version)}),
+		&resp, version, end); err != nil {
+		raiseErr(RESPONSE_INVALID,
+			errors.Wrap(err, "Failed to write back version"))
+
 	}
 	// else use streaming
 	for {
-		var resp BeaconResponsePacket
-		resp.Flags |= uint16(version)
 		buff, err := readBytesOrCancel(conn, 4, &resp, version, end)
 		if err != nil {
-			log.Printf("Recieved error while reading length %s", err)
+			raiseErr(RESPONSE_INVALID, errors.Wrap(err, "Failed to read length"))
 			return
 		}
 
 		var length uint32
 		if err = binary.Read(buff, binary.LittleEndian, &length); err != nil {
-			log.Println("Unexpected error when reading from buffer ", err)
-			resp.Flags |= RESPONSE_INVALID
-			writeResponseAndClose(conn, &resp, true, version)
+			err = errors.Wrap(err, "Unexpected error when reading from buffer")
+			raiseErr(RESPONSE_INVALID, err)
 			return
 		}
 
 		buff, err = readBytesOrCancel(conn, int64(length), &resp, version, end)
 		if err != nil {
-			log.Printf("Recieved error while reading packet %s", err)
-			resp.Flags |= RESPONSE_INVALID
-			writeResponseAndClose(conn, &resp, true, version)
+			err = errors.Wrap(err, "Recieved error while reading packet %s")
+			raiseErr(RESPONSE_INVALID, err)
 			return
 		}
 
 		var message BeaconLogPacket
 		err = message.UnmarshalBinary(buff.Bytes())
 		if err != nil {
-			log.Printf("Recieved error while unmarshalling %s", err)
-			resp.Flags |= RESPONSE_INVALID
-			writeResponseAndClose(conn, &resp, true, version)
+			err = errors.Wrap(err, "Recieved error while unmarshalling %s")
+			raiseErr(RESPONSE_INVALID, err)
 			return
 
 		}
@@ -240,6 +210,52 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 		// back data to the connection in order of arrival
 		handlePacket(conn, &resp, &message)
 	}
+}
+
+// writeBytesOrCancel
+func writeBytesOrCancel(conn net.Conn, buff *bytes.Buffer, resp *BeaconResponsePacket, version uint8, end chan struct{}) error {
+	var timeoutcount int
+	n := int64(buff.Len())
+
+	raiseErr := func(flags uint16, err error) error {
+		resp.Flags |= flags
+		writeResponseAndClose(conn, resp, true, version)
+		return err
+	}
+
+	for n > 0 {
+		conn.SetWriteDeadline(time.Now().Add(time.Second * 2))
+		copyn, err := io.CopyN(conn, buff, n)
+
+		if err == nil {
+			break
+		}
+		switch v := err.(type) {
+		case net.Error:
+			// pass
+			if !v.Timeout() {
+				return raiseErr(RESPONSE_INVALID, err)
+			}
+			timeoutcount += 1
+			if timeoutcount > 5 {
+				err = errors.New("Failed to write to conn in 10 seconds")
+				return raiseErr(RESPONSE_INVALID, err)
+			}
+
+			// If timeout check if the channel is closed, if so return
+			select {
+			case _, _ = <-end:
+				err = errors.New("Shutdown requested")
+				return raiseErr(RESPONSE_INTERNAL_FAILURE, err)
+			default:
+			}
+			log.Println("DEBUG: timeout")
+		default:
+			return raiseErr(RESPONSE_INVALID, err)
+		}
+		n -= copyn
+	}
+	return nil
 }
 
 // readBytesOrCancel will read the specified bytes from connection and return
@@ -252,44 +268,42 @@ func readBytesOrCancel(conn net.Conn, n int64,
 	buff := new(bytes.Buffer)
 	// Set a deadline for 5 seconds from now
 	var timeoutcount int
+
+	raiseErr := func(flags uint16, err error) (*bytes.Buffer, error) {
+		resp.Flags |= flags
+		writeResponseAndClose(conn, resp, true, version)
+		return nil, err
+	}
+
 	for n > 0 {
 		conn.SetReadDeadline(time.Now().Add(time.Second * 2))
 		copyn, err := io.CopyN(buff, conn, n)
-		if err != nil {
-			switch v := err.(type) {
-			case net.Error:
-				// pass
-				if v.Timeout() {
-					timeoutcount += 1
-					if timeoutcount > 10 {
-						resp.Flags |= RESPONSE_INVALID
-						writeResponseAndClose(conn, resp, true, version)
-						return nil, errors.New("Failed to read from conn in 20 seconds")
-					}
-					// If timeout check if the channel is closed, if so
-					// return
-					select {
-					case _, _ = <-end:
-						log.Println("Shutdown requested")
-						resp.Flags |= RESPONSE_INTERNAL_FAILURE
-						writeResponseAndClose(conn, resp, true, version)
-						return nil, errors.New("Shutdown requested")
-					default:
-					}
-					log.Println("DEBUG: timeout")
-					n -= copyn
-					continue
-				}
-				log.Println("Unexpected error when reading from buffer ", v)
-				resp.Flags |= RESPONSE_INVALID
-				writeResponseAndClose(conn, resp, true, version)
-				return nil, err
-			default:
-				log.Println("Unexpected error when reading from buffer ", v)
-				resp.Flags |= RESPONSE_INVALID
-				writeResponseAndClose(conn, resp, true, version)
-				return nil, err
+
+		if err == nil {
+			break
+		}
+		switch v := err.(type) {
+		case net.Error:
+			// pass
+			if !v.Timeout() {
+				return raiseErr(RESPONSE_INVALID, err)
 			}
+			timeoutcount += 1
+			if timeoutcount > 5 {
+				err = errors.New("Failed to read from conn in 10 seconds")
+				return raiseErr(RESPONSE_INVALID, err)
+			}
+
+			// If timeout check if the channel is closed, if so return
+			select {
+			case _, _ = <-end:
+				err = errors.New("Shutdown requested")
+				return raiseErr(RESPONSE_INTERNAL_FAILURE, err)
+			default:
+			}
+			log.Println("DEBUG: timeout")
+		default:
+			return raiseErr(RESPONSE_INVALID, err)
 		}
 		n -= copyn
 	}
@@ -303,13 +317,20 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 	version := pack.Flags & VERSION_MASK
 	errorClose := true
 	// Version 0 should close on success, Version > 0 uses stream connections
-	successClose := version == 0 || false
+	successClose := false
+
+	responseHandle := func(flags uint16, err error) {
+		resp.Flags |= flags
+		if err != nil {
+			log.Println("handlePacket failed with: %s", err)
+			writeResponseAndClose(conn, resp, errorClose, version)
+		}
+		writeResponseAndClose(conn, resp, successClose, version)
+	}
 
 	db, err := db.openDB()
 	if err != nil {
-		log.Println("Failed to open DB", err)
-		resp.Flags |= RESPONSE_INTERNAL_FAILURE
-		writeResponseAndClose(conn, resp, errorClose, version)
+		responseHandle(RESPONSE_INTERNAL_FAILURE, errors.Wrap(err, "Failed to open DB"))
 		return
 	}
 	defer db.Close()
@@ -318,9 +339,7 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 	if pack.Flags&REQUEST_BEACON_UPDATES != 0 {
 		beacons, err := dbGetBeacons(db)
 		if err != nil {
-			log.Println("Failed to get Beacons", err)
-			resp.Flags |= RESPONSE_INTERNAL_FAILURE
-			writeResponseAndClose(conn, resp, errorClose, version)
+			responseHandle(RESPONSE_INTERNAL_FAILURE, errors.Wrap(err, "Failed to get beacons"))
 			return
 		}
 		for _, b := range beacons {
@@ -329,9 +348,7 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 		if len(resp.Data) > 1 {
 			resp.Data = resp.Data[1:]
 		}
-
-		resp.Flags |= RESPONSE_BEACON_UPDATES
-		writeResponseAndClose(conn, resp, successClose, version)
+		responseHandle(RESPONSE_BEACON_UPDATES, nil)
 		return
 	}
 
@@ -339,18 +356,14 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 	if pack.Flags&REQUEST_CONTROL_LOG != 0 {
 		edgeid, err := dbCheckUuid(pack.Uuid, db)
 		if err != nil {
-			log.Printf("Error occured edgeid \"%s\" was not found in db: %s", pack.Uuid, err)
-			resp.Flags |= RESPONSE_INTERNAL_FAILURE
-			writeResponseAndClose(conn, resp, errorClose, version)
+			err = errors.Wrapf(err, "Error occured edgeid \"%s\" was not found in db", pack.Uuid)
+			responseHandle(RESPONSE_INTERNAL_FAILURE, err)
 			return
 		}
 		if err = dbInsertControlLog(edgeid, pack, db); err != nil {
-			log.Printf("Error occured %s", err)
-			resp.Flags |= RESPONSE_INTERNAL_FAILURE
-			writeResponseAndClose(conn, resp, errorClose, version)
+			responseHandle(RESPONSE_INTERNAL_FAILURE, err)
 		} else {
-			resp.Flags |= RESPONSE_OK
-			writeResponseAndClose(conn, resp, successClose, version)
+			responseHandle(RESPONSE_OK, nil)
 		}
 		return
 
@@ -358,43 +371,38 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 	} else if pack.Flags&REQUEST_CONTROL_COMPLETE != 0 {
 		err = dbCompleteControl(pack, db)
 		if err != nil {
-			log.Println("Failed to update control", err)
-			resp.Flags |= RESPONSE_INTERNAL_FAILURE
-			writeResponseAndClose(conn, resp, errorClose, version)
+			responseHandle(RESPONSE_INTERNAL_FAILURE, errors.Wrap(err, "Failed to update control"))
 			return
 		}
-		resp.Flags |= RESPONSE_OK
-		writeResponseAndClose(conn, resp, successClose, version)
+		responseHandle(RESPONSE_OK, nil)
 	} else {
 		control, err := dbGetControl(pack, db)
 		if err != nil {
 			// log.Printf("DEBUG: Failed to get control, passing: %s", err)
 		} else {
-			log.Debugf("Sending control %s", control)
+			log.Infof("Sending control %s", control)
 			resp.Data = control
 			resp.Flags |= RESPONSE_SYSTEM
 		}
-		resp.Flags |= RESPONSE_OK
-		writeResponseAndClose(conn, resp, successClose, version)
+		responseHandle(RESPONSE_OK, nil)
 	}
 
 	var edgeid int
 
 	edgeid, err = dbCheckUuid(pack.Uuid, db)
 	if err != nil {
-		log.Printf("Error occured edgeid \"%s\" was not found in db: %s", pack.Uuid, err)
+		err = errors.Wrapf(err, "Error occured edgeid \"%s\" was not found in db", pack.Uuid)
+		responseHandle(RESPONSE_INVALID, err)
 		return
 	}
+
 	// Update the time of the given edge that we have confirmed
 	updateEdgeLastUpdate(pack.Uuid, db)
 	log.Debug("Packet from ", pack.Uuid, edgeid)
 	if err = dbAddLogsForBeacons(pack, edgeid, db); err != nil {
-		log.Println("Error when checking in logs for beacon", err)
-		resp.Flags |= RESPONSE_INTERNAL_FAILURE
-		writeResponseAndClose(conn, resp, errorClose, version)
+		err = errors.Wrap(err, "Error when checking in logs for beacon")
+		responseHandle(RESPONSE_INTERNAL_FAILURE, err)
 		return
 	}
-	resp.Flags |= RESPONSE_OK
-	writeResponseAndClose(conn, resp, successClose, version)
-
+	responseHandle(RESPONSE_OK, nil)
 }

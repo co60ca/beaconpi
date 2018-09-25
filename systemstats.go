@@ -418,7 +418,7 @@ func modBeacon() http.Handler {
 
 // syncCheck returns the maximum time difference between the last 10 beacon_logs
 // entered and the current time, this is used to see if any edges are misbehaving
-// if no error occurs int will be populated with
+
 func syncCheck() (timedeltaseconds float64, edgenodeid int, err error) {
 	dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
 	db, err := dbconfig.openDB()
@@ -433,5 +433,25 @@ func syncCheck() (timedeltaseconds float64, edgenodeid int, err error) {
             order by diff desc limit 1`
 
 	err = db.QueryRow(query).Scan(&edgenodeid, &timedeltaseconds)
+	return
+}
+
+func changedActiveEdges() (inactEdges []int, err error) {
+	dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
+	db, err := dbconfig.openDB()
+	rowsedge, err := db.Query(`
+        select id from inactive_edges()
+    `)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed while getting inactive edges")
+	}
+	defer rowsedge.Close()
+	for rowsedge.Next() {
+		var t int
+		if err := rowsedge.Scan(&t); err != nil {
+			return nil, errors.Wrapf(err, "Failed while scanning edges")
+		}
+		inactEdges = append(inactEdges, t)
+	}
 	return
 }
