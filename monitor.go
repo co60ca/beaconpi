@@ -28,7 +28,7 @@ func startMonitor() {
 }
 
 func sendInfo(msg string) {
-	if len(msg) < MAX_MONITOR_MSG {
+	if len(msg) > MAX_MONITOR_MSG {
 		log.Infof("Length of msg was %d which was too large %d is the max msg: %s", len(msg), MAX_MONITOR_MSG, msg)
 		return
 	}
@@ -36,7 +36,7 @@ func sendInfo(msg string) {
 }
 
 func sendWarning(msg string) {
-	if len(msg) < MAX_MONITOR_MSG {
+	if len(msg) > MAX_MONITOR_MSG {
 		log.Infof("Length of msg was %d which was too large %d is the max msg: %s", len(msg), MAX_MONITOR_MSG, msg)
 		return
 	}
