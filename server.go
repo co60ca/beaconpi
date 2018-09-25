@@ -136,7 +136,7 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 	conn.SetWriteDeadline(time.Now().Add(time.Second * 2))
 	_, err = buff.WriteTo(conn)
 	if err != nil {
-		log.Printf("Failed to write len of response %+v", errors.Wrap(err, nil))
+		log.Printf("Failed to write len of response %+v", errors.WithStack(err))
 		return
 	}
 
