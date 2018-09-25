@@ -136,7 +136,7 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 	conn.SetWriteDeadline(time.Now().Add(time.Second * 2))
 	_, err = buff.WriteTo(conn)
 	if err != nil {
-		log.Printf("Failed to write len of response %s", err)
+		log.Printf("Failed to write len of response %+v", err)
 		return
 	}
 
@@ -144,7 +144,7 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 	n, err := conn.Write(respbytes)
 	if n != len(respbytes) || err != nil {
 		log.Printf("Failed to write response. Len written: %d of %d"+
-			". Error was %s", n, len(respbytes), err)
+			". Error was %+v", n, len(respbytes), err)
 	}
 	conn.SetWriteDeadline(time.Time{})
 }
@@ -175,6 +175,7 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 		&resp, version, end); err != nil {
 		raiseErr(RESPONSE_INVALID,
 			errors.Wrap(err, "Failed to write back version"))
+		return
 
 	}
 	// else use streaming
