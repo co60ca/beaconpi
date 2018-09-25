@@ -150,7 +150,6 @@ func writeResponseAndClose(conn net.Conn, resp *BeaconResponsePacket, close bool
 
 // handleConnection handles the connection once established
 func handleConnection(conn net.Conn, end chan struct{}) {
-	databuff := new(bytes.Buffer)
 	var resp BeaconResponsePacket
 	version := uint8(CURRENT_VERSION)
 
@@ -161,12 +160,12 @@ func handleConnection(conn net.Conn, end chan struct{}) {
 	}
 
 	// Copy the first byte
-	_, err := readBytesOrCancel(conn, 1, &resp, CURRENT_VERSION, end)
+	buff, err := readBytesOrCancel(conn, 1, &resp, CURRENT_VERSION, end)
 	if err != nil {
 		raiseErr(RESPONSE_INVALID, err)
 		return
 	}
-	version = uint8(databuff.Bytes()[0] & VERSION_MASK)
+	version = uint8(buff.Bytes()[0] & VERSION_MASK)
 	resp.Flags |= uint16(version)
 
 	// Write the version back
