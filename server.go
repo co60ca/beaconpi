@@ -226,6 +226,7 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 		if err != nil {
 			log.Println("handlePacket failed with: %s", err)
 			writeResponseAndClose(conn, resp, errorClose, version)
+			return
 		}
 		writeResponseAndClose(conn, resp, successClose, version)
 	}
