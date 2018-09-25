@@ -47,6 +47,18 @@ func (u Uuid) String() string {
 		hex.EncodeToString(u[10:16]))
 }
 
+func UuidFromString(s string) (Uuid, error) {
+    t := strings.Split(s, "-")
+    t := strings.Join(t, "")
+    b, err := hex.DecodeString(t)
+    if err != nil {
+        return Uuid{}, err
+    } else if len(b) != 16 {
+        return Uuid{}, errors.New("Output length of uuid binary was too long")
+    var res Uuid
+    copy(res[:], b[:])
+}
+
 // 12 Bytes which represents one time series value
 type BeaconLog struct {
 	Datetime time.Time

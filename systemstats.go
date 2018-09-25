@@ -59,6 +59,7 @@ func quickStats() http.Handler {
 		)
 
 		type edges struct {
+			Id          int
 			Title       string
 			Room        string
 			Location    string
@@ -77,7 +78,7 @@ func quickStats() http.Handler {
 		for rowsedge.Next() {
 			var t edges
 			var desc sql.NullString
-			if err := rowsedge.Scan(&t.Title, &t.Room, &t.Location,
+			if err := rowsedge.Scan(&t.Id, &t.Title, &t.Room, &t.Location,
 				&desc); err != nil {
 				log.Errorf("Failed while scanning edges %s", err)
 				http.Error(w, "Server failure", 500)
@@ -389,7 +390,6 @@ func modBeacon() http.Handler {
 				(label, uuid, major, minor) values
 				($1, $2, $3, $4)`, input.Label, input.Uuid,
 				input.Major, input.Minor)
-
 		case "mod":
 			_, err = db.Exec(`update ibeacons
 				set (label, uuid, major, minor) =

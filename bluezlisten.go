@@ -84,6 +84,18 @@ type BeaconRecord struct {
 	Rssi     int16
 }
 
+// IBeaconListener is public provider for BeaconRecords
+func IBeaconListener(validbeacons []BeaconData, brs chan BeaconRecord) {
+	client := clientinfo{
+		nodes: make(map[string]struct{}),
+	}
+	for _, v := range validbeacons {
+		uid := v.String()
+		client.nodes[uid] = struct{}{}
+	}
+	processIBeacons(&client, brs)
+}
+
 // processIBeacons returns a stream of BeaconRecords given the collection of
 // valid beacons given from client
 func processIBeacons(client *clientinfo, brs chan BeaconRecord) {
