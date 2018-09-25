@@ -289,7 +289,6 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 			resp.Data = control
 			resp.Flags |= RESPONSE_SYSTEM
 		}
-		responseHandle(RESPONSE_OK, nil)
 	}
 
 	var edgeid int
