@@ -439,6 +439,11 @@ func syncCheck() (timedeltaseconds float64, edgenodeid int, err error) {
 func changedActiveEdges() (inactEdges []int, err error) {
 	dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
 	db, err := dbconfig.openDB()
+	if err != nil {
+		log.Println("Failed to open db")
+		return nil, err
+	}
+	defer db.Close()
 	rowsedge, err := db.Query(`
         select id from inactive_edges()
     `)
