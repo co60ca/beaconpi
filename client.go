@@ -189,6 +189,20 @@ func clientLoop(client *clientinfo) {
 		}
 
 		select {
+		case tempbr := <-brs:
+			// Block gets Beacons from beacon log producer
+			beaconstr := tempbr.BeaconData.String()
+			var i int
+			var ok bool
+			if i, ok = currentbeacons[beaconstr]; !ok {
+				datapacket.Beacons = append(datapacket.Beacons, tempbr.BeaconData)
+				i = len(datapacket.Beacons) - 1
+				currentbeacons[beaconstr] = i
+			}
+			datapacket.Logs = append(datapacket.Logs, BeaconLog{
+				Datetime:    tempbr.Datetime,
+				Rssi:        tempbr.Rssi,
+				BeaconIndex: uint16(i)})
 		case _ = <-timeruuid.C:
 			if err = requestBeacons(client, conn); err != nil {
 				log.Printf("Error occured, connection killed %s", err)
@@ -209,20 +223,6 @@ func clientLoop(client *clientinfo) {
 			datapacket.Flags = CURRENT_VERSION
 			copy(datapacket.Uuid[:], client.uuid[:])
 
-		case tempbr := <-brs:
-			// Block gets Beacons from beacon log producer
-			beaconstr := tempbr.BeaconData.String()
-			var i int
-			var ok bool
-			if i, ok = currentbeacons[beaconstr]; !ok {
-				datapacket.Beacons = append(datapacket.Beacons, tempbr.BeaconData)
-				i = len(datapacket.Beacons) - 1
-				currentbeacons[beaconstr] = i
-			}
-			datapacket.Logs = append(datapacket.Logs, BeaconLog{
-				Datetime:    tempbr.Datetime,
-				Rssi:        tempbr.Rssi,
-				BeaconIndex: uint16(i)})
 		}
 		if len(datapacket.Beacons) == MAX_LOGS {
 			log.Println("Sending data to server due to full queue")

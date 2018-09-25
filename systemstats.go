@@ -415,3 +415,23 @@ func modBeacon() http.Handler {
 		return
 	})
 }
+
+// syncCheck returns the maximum time difference between the last 10 beacon_logs
+// entered and the current time, this is used to see if any edges are misbehaving
+// if no error occurs int will be populated with
+func syncCheck() (timedeltaseconds float64, edgenodeid int, err error) {
+	dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
+	db, err := dbconfig.openDB()
+	if err != nil {
+		return 0.0, 0, errors.Errorf("Error opening DB %s", err)
+	}
+	defer db.Close()
+	query := `select a.edgenodeid as edge, 
+            abs(extract(epoch from a.td)) as diff 
+            from (select edgenodeid, datetime - current_timestamp as td 
+                from beacon_log order by id desc limit 10) as a 
+            order by diff desc limit 1`
+
+	err = db.QueryRow(query).Scan(&edgenodeid, &timedeltaseconds)
+	return
+}
