@@ -293,7 +293,7 @@ func sendData(client *clientinfo, conn *tls.Conn, datapacket *BeaconLogPacket) e
 	buff := bytes.NewBuffer(bytespacket)
 	err = writeLengthLE32(conn, buff)
 	if err != nil {
-		return err
+		return handleFatalError(conn, "Failed to write length", err)
 	}
 
 	_, err = buff.WriteTo(conn)

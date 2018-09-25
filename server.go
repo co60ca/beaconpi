@@ -242,6 +242,7 @@ func handlePacket(conn net.Conn, resp *BeaconResponsePacket,
 
 	// Client request beacon updates
 	if pack.Flags&REQUEST_BEACON_UPDATES != 0 {
+		log.Info("Client requested beacon updates")
 		beacons, err := dbGetBeacons(db)
 		if err != nil {
 			responseHandle(RESPONSE_INTERNAL_FAILURE, errors.Wrap(err, "Failed to get beacons"))
