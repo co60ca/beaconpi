@@ -313,6 +313,7 @@ func sendData(client *clientinfo, conn *tls.Conn, datapacket *BeaconLogPacket) e
 
 // requestBeacons sends a request for the registered beacons from the server
 func requestBeacons(client *clientinfo, conn *tls.Conn) error {
+	log.Println("Requested Beacons")
 	var blp BeaconLogPacket
 	blp.Flags = CURRENT_VERSION
 	blp.Flags |= REQUEST_BEACON_UPDATES
