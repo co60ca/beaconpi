@@ -249,7 +249,8 @@ const (
 )
 
 const (
-	ERROR_DESYNC = iota
+	ERROR_NULL = iota
+	ERROR_DESYNC
 )
 
 //
