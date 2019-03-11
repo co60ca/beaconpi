@@ -20,8 +20,10 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -57,7 +59,17 @@ func dbAddLogsForBeacons(pack *BeaconLogPacket, edgeid int, db *sql.DB) error {
 	}, len(pack.Logs))
 
 	// Line is gaurunteed by guard at top
-	log.Debug("Time on beacon recieved ", pack.Logs[0])
+	firstlog := pack.Logs[0]
+	log.Debug("Time on beacon recieved ", firstlog)
+
+	maxtimediff := 5.0
+	diff := firstlog.Datetime.Sub(time.Now()).Seconds()
+	if math.Abs(diff) > 5.0 {
+		errorstr := fmt.Sprintf("Time between server and client is greater than %f, (%f)", maxtimediff, diff)
+		log.Info(errorstr)
+		dbInsertError(ERROR_DESYNC, ERROR_INFO, errorstr, edgeid, db)
+		return errors.New(errorstr)
+	}
 	for i, logv := range pack.Logs {
 		data[i].Datetime = logv.Datetime
 		data[i].Rssi = int(logv.Rssi)
@@ -225,4 +237,37 @@ func dbCheckUuid(uuid Uuid, db *sql.DB) (int, error) {
 		return 0, errors.New("Error occured while attempting to fetch Uuid: " + err.Error())
 	}
 	return edgeid, nil
+}
+
+const (
+	ERROR_TRACE = 0
+	ERROR_DEBUG = 1
+	ERROR_INFO  = 2
+	ERROR_WARN  = 3
+	ERROR_ERROR = 4
+	ERROR_FATAL = 5
+)
+
+const (
+	ERROR_DESYNC = iota
+)
+
+func dbInsertError(errorid, errorlevel int, errortext string, edgenodeid int, db *sql.DB) {
+	query := `insert into system_errors (error_id, error_level, error_text, edgenodeid)
+		values ($1, $2, $3, $4)`
+
+	erroridp := &errorid
+	edgenodeidp := &edgenodeid
+
+	if *erroridp == 0 {
+		erroridp = nil
+	}
+	if *edgenodeidp == 0 {
+		edgenodeidp = nil
+	}
+
+	_, err := db.Exec(query, erroridp, errorlevel, errortext, edgenodeidp)
+	if err != nil {
+		log.Warnf("Failed to insert error \"%s\" due to error: %s", errortext, err)
+	}
 }
