@@ -380,7 +380,7 @@ func readBytesOrCancel(conn net.Conn, n int64,
 	}
 
 	for n > 0 {
-		conn.SetReadDeadline(time.Now().Add(time.Second * 2))
+		conn.SetReadDeadline(time.Now().Add(time.Second * 3))
 		copyn, err := io.CopyN(buff, conn, n)
 
 		if err == nil {
@@ -394,7 +394,7 @@ func readBytesOrCancel(conn net.Conn, n int64,
 			}
 			timeoutcount += 1
 			if timeoutcount > 5 {
-				err = errors.New("Failed to read from conn in 10 seconds")
+				err = errors.New("Failed to read from conn in 15 seconds")
 				return raiseErr(RESPONSE_INVALID, err)
 			}
 
