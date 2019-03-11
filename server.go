@@ -405,7 +405,7 @@ func readBytesOrCancel(conn net.Conn, n int64,
 				return raiseErr(RESPONSE_INTERNAL_FAILURE, err)
 			default:
 			}
-			log.Println("DEBUG: timeout")
+			log.Printf("DEBUG: timeout, error: %s", err)
 		default:
 			return raiseErr(RESPONSE_INVALID, err)
 		}
