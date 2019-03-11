@@ -67,7 +67,7 @@ func dbAddLogsForBeacons(pack *BeaconLogPacket, edgeid int, db *sql.DB) error {
 	if math.Abs(diff) > 5.0 {
 		errorstr := fmt.Sprintf("Time between server and client is greater than %f, (%f)", maxtimediff, diff)
 		log.Info(errorstr)
-		dbInsertError(ERROR_DESYNC, ERROR_INFO, errorstr, edgeid, db)
+		dbInsertError(ERROR_DESYNC, ERROR_INFO, errorstr, edgeid, "2 minutes", db)
 		return errors.New(errorstr)
 	}
 	for i, logv := range pack.Logs {
@@ -252,7 +252,10 @@ const (
 	ERROR_DESYNC = iota
 )
 
-func dbInsertError(errorid, errorlevel int, errortext string, edgenodeid int, db *sql.DB) {
+//
+// every is a postgres interval
+func dbInsertError(errorid, errorlevel int, errortext string, edgenodeid int, every string, db *sql.DB) {
+
 	query := `insert into system_errors (error_id, error_level, error_text, edgenodeid)
 		values ($1, $2, $3, $4)`
 
@@ -266,7 +269,15 @@ func dbInsertError(errorid, errorlevel int, errortext string, edgenodeid int, db
 		edgenodeidp = nil
 	}
 
-	_, err := db.Exec(query, erroridp, errorlevel, errortext, edgenodeidp)
+	var count int
+	err := db.QueryRow(`select count(*) from system_errors 
+        where edgenodeid=$1 and error_id=$2 and 
+        current_timestamp - datetime < `+every, edgenodeidp, erroridp).Scan(&count)
+	if count > 0 {
+		return
+	}
+
+	_, err = db.Exec(query, erroridp, errorlevel, errortext, edgenodeidp)
 	if err != nil {
 		log.Warnf("Failed to insert error \"%s\" due to error: %s", errortext, err)
 	}
