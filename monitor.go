@@ -120,6 +120,7 @@ func metricsBackgroundTasks() {
 				for _, v := range msg {
 					sendWarning(v)
 				}
+				db.Close()
 			} else {
 				log.Warnf("Failed to open DB %s", err)
 			}
