@@ -19,9 +19,9 @@ package beaconpi
 import (
 	"database/sql"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	_ "github.com/lib/pq"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"math"
 	"strconv"
@@ -282,4 +282,51 @@ func dbInsertError(errorid, errorlevel int, errortext string, edgenodeid int, ev
 	if err != nil {
 		log.Warnf("Failed to insert error \"%s\" due to error: %s", errortext, err)
 	}
+}
+
+//
+// errorid = 0 returns the last ten minutes
+func dbGetErrorsSince(errorid int, db *sql.DB) ([]string, int, error) {
+	var rows *sql.Rows
+	var err error
+	if errorid == 0 {
+		rows, err = db.Query(`select id, datetime, error_id, error_level, error_text, edgenodeid
+        from system_errors where datetime > current_timestamp - '10 minutes'::interval order by id
+        `)
+	} else {
+		rows, err = db.Query(`select id, datetime, error_id, error_level, error_text, edgenodeid
+        from system_errors where id > $1 order by id
+        `, errorid)
+	}
+
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "Failed to query system errors")
+	}
+
+	var (
+		id          int
+		datetime    time.Time
+		error_id    sql.NullInt64
+		error_level sql.NullInt64
+		edgenodeid  sql.NullInt64
+		error_text  string
+		edgestr     string
+		result      []string
+	)
+
+	for rows.Next() {
+		if err = rows.Scan(&id, &datetime, &error_id, &edgenodeid, &error_text); err != nil {
+			return nil, 0, errors.Wrap(err, "Failed to scan row")
+		}
+		if edgenodeid.Valid {
+			edgestr = fmt.Sprintf(" Edge: %d", edgenodeid.Int64)
+		}
+
+		// The Int64 value of sql.NullInt64 will be 0 if it is null which is fine by me
+		result = append(result, fmt.Sprintf("[%s:%d:%d]%s %s", datetime.Format(time.RFC3339),
+			error_level.Int64, error_id.Int64, edgestr, error_text))
+
+	}
+	return result, id, nil
+
 }

@@ -95,6 +95,8 @@ func metricsBackgroundTasks() {
 	startMonitor()
 	tickES := time.Tick(TIMEOUT_EDGE_SYNC)
 	tickSend := time.Tick(TIMEOUT_SEND)
+	var lastid int
+	var msg []string
 
 	sendInfo("Server Started")
 	sendQueue()
@@ -107,11 +109,21 @@ func metricsBackgroundTasks() {
 	for {
 		select {
 		case _ = <-tickES:
-			if timediffsec, edge, err := syncCheck(); err != nil {
-				log.Error("Failed to sync check", err)
-			} else if timediffsec > EDGE_SYNC_MAX {
-				sendWarning(fmt.Sprintf("Edge %d has a time difference of %f which is outside allowable tolerance %f", edge, timediffsec, EDGE_SYNC_MAX))
+
+			dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
+			db, err := dbconfig.openDB()
+			if err == nil {
+				msg, lastid, err = dbGetErrorsSince(lastid, db)
+				if err != nil {
+					log.Warnf("Error getting db errors %s", err)
+				}
+				for _, v := range msg {
+					sendWarning(v)
+				}
+			} else {
+				log.Warnf("Failed to open DB %s", err)
 			}
+
 			// check inactive edges
 			newedges, err := changedActiveEdges()
 			if err != nil {
