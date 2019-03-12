@@ -313,6 +313,7 @@ func dbGetErrorsSince(errorid int, db *sql.DB) ([]string, int, error) {
 		edgestr     string
 		result      []string
 	)
+	id = errorid
 
 	for rows.Next() {
 		if err = rows.Scan(&id, &datetime, &error_id, &error_level, &error_text, &edgenodeid); err != nil {
