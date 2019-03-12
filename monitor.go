@@ -45,7 +45,7 @@ func sendWarning(msg string) {
 
 func sendQueue() {
 	log.Info("Sending Message Queue")
-	log.Debugf("mp: %v", mp)
+	//log.Debugf("mp: %v", mp)
 	d := gomail.NewDialer(mp.SMTPHost, mp.SMTPPort, mp.SMTPUser, mp.SMTPPassphrase)
 	msg := gomail.NewMessage()
 	msg.SetHeader("From", mp.SMTPUser)
