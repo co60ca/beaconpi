@@ -315,7 +315,7 @@ func dbGetErrorsSince(errorid int, db *sql.DB) ([]string, int, error) {
 	)
 
 	for rows.Next() {
-		if err = rows.Scan(&id, &datetime, &error_id, &edgenodeid, &error_text); err != nil {
+		if err = rows.Scan(&id, &datetime, &error_id, &error_level, &edgenodeid, &error_text); err != nil {
 			return nil, 0, errors.Wrap(err, "Failed to scan row")
 		}
 		if edgenodeid.Valid {
