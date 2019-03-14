@@ -62,14 +62,24 @@ func dbAddLogsForBeacons(pack *BeaconLogPacket, edgeid int, db *sql.DB) error {
 	firstlog := pack.Logs[0]
 	log.Debug("Time on beacon recieved ", firstlog)
 
+	// Check if the packet is old, we should probably drop it if it is really old
 	maxtimediff := 5.0
+	maxtimedifferr := 30.0
 	diff := firstlog.Datetime.Sub(time.Now()).Seconds()
-	if math.Abs(diff) > 5.0 {
+
+	if math.Abs(diff) > maxtimedifferr {
 		errorstr := fmt.Sprintf("Time between server and client is greater than %f, (%f)", maxtimediff, diff)
 		log.Info(errorstr)
-		dbInsertError(ERROR_DESYNC, ERROR_INFO, errorstr, edgeid, "2 minutes", db)
+		dbInsertError(ERROR_DESYNC, ERROR_ERROR, errorstr, edgeid, "2 minutes", db)
 		return errors.New(errorstr)
 	}
+
+	if math.Abs(diff) > maxtimediff {
+		errorstr := fmt.Sprintf("Time between server and client is greater than %f, (%f)", maxtimediff, diff)
+		log.Info(errorstr)
+		dbInsertError(ERROR_DESYNC, ERROR_WARN, errorstr, edgeid, "2 minutes", db)
+	}
+
 	for i, logv := range pack.Logs {
 		data[i].Datetime = logv.Datetime
 		data[i].Rssi = int(logv.Rssi)
