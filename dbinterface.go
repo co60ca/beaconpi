@@ -75,7 +75,7 @@ func dbAddLogsForBeacons(pack *BeaconLogPacket, edgeid int, db *sql.DB) error {
 	}
 
 	if math.Abs(diff) > maxtimediff {
-		errorstr := fmt.Sprintf("Time between server and client is greater than %f, (%f)", maxtimediff, diff)
+		errorstr := fmt.Sprintf("Time between server and client is greater than %f, (%f)", maxtimedifferr, diff)
 		log.Info(errorstr)
 		dbInsertError(ERROR_DESYNC, ERROR_WARN, errorstr, edgeid, "2 minutes", db)
 	}
