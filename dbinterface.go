@@ -291,10 +291,8 @@ func dbInsertError(errorid, errorlevel int, errortext string, edgenodeid int, ev
 	_ = rows.Next()
 	err = rows.Scan(&count)
 	if err != nil {
-		log.Debugf("Error when checking row: %s", err)
-		return
+		log.Debugf("Info when checking row: %s", err)
 	}
-
 	// If there is no rows, you will get countn = 0
 
 	if count > 0 {
