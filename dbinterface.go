@@ -298,11 +298,11 @@ func dbGetErrorsSince(errorid int, db *sql.DB) ([]string, int, error) {
 	var rows *sql.Rows
 	var err error
 	if errorid == 0 {
-		rows, err = db.Query(`select id, datetime, error_id, error_level, error_text, edgenodeid
+		rows, err = db.Query(`select id, datetime, error_id, error_level, error_text, edgenodeid, countn
         from system_errors where datetime > current_timestamp - '10 minutes'::interval order by id
         `)
 	} else {
-		rows, err = db.Query(`select id, datetime, error_id, error_level, error_text, edgenodeid
+		rows, err = db.Query(`select id, datetime, error_id, error_level, error_text, edgenodeid, countn
         from system_errors where id > $1 order by id
         `, errorid)
 	}
@@ -314,6 +314,7 @@ func dbGetErrorsSince(errorid int, db *sql.DB) ([]string, int, error) {
 	var (
 		id          int
 		datetime    time.Time
+		countn      int
 		error_id    sql.NullInt64
 		error_level sql.NullInt64
 		edgenodeid  sql.NullInt64
@@ -324,7 +325,7 @@ func dbGetErrorsSince(errorid int, db *sql.DB) ([]string, int, error) {
 	id = errorid
 
 	for rows.Next() {
-		if err = rows.Scan(&id, &datetime, &error_id, &error_level, &error_text, &edgenodeid); err != nil {
+		if err = rows.Scan(&id, &datetime, &error_id, &error_level, &error_text, &edgenodeid, &countn); err != nil {
 			return nil, 0, errors.Wrap(err, "Failed to scan row")
 		}
 		if edgenodeid.Valid {
@@ -332,8 +333,8 @@ func dbGetErrorsSince(errorid int, db *sql.DB) ([]string, int, error) {
 		}
 
 		// The Int64 value of sql.NullInt64 will be 0 if it is null which is fine by me
-		result = append(result, fmt.Sprintf("[%s:%d:%d]%s %s", datetime.Format(time.RFC3339),
-			error_level.Int64, error_id.Int64, edgestr, error_text))
+		result = append(result, fmt.Sprintf("[%s:%d:%d:#%d]%s %s", datetime.Format(time.RFC3339),
+			error_level.Int64, error_id.Int64, countn, edgestr, error_text))
 
 	}
 	return result, id, nil
