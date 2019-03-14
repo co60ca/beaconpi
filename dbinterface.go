@@ -296,7 +296,7 @@ func dbInsertError(errorid, errorlevel int, errortext string, edgenodeid int, ev
 	// If there is no rows, you will get countn = 0
 
 	if count > 0 {
-		_, err = db.Exec(`update system_errors set count = $1 
+		_, err = db.Exec(`update system_errors set countn = $1 
             where edgenodeid=$2 and error_id=$3 and
             current_timestamp - datetime < '`+every+"'", count+1, edgenodeidp, erroridp)
 		log.Debugf("Increasing error id: [%d] text: \"%s\" to count %d", errorid, errortext, count+1)
