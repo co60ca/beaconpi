@@ -350,10 +350,29 @@ func dbGetErrorsSince(errorid int, db *sql.DB) ([]string, int, error) {
 		}
 
 		// The Int64 value of sql.NullInt64 will be 0 if it is null which is fine by me
-		result = append(result, fmt.Sprintf("[%s:%d:%d:#%d]%s %s", datetime.Format(time.RFC3339),
-			error_level.Int64, error_id.Int64, countn, edgestr, error_text))
+		result = append(result, fmt.Sprintf("[%s:%s:%d:#%d]%s %s", datetime.Format(time.RFC3339),
+			errorLevelToText(error_level.Int64), error_id.Int64, countn, edgestr, error_text))
 
 	}
 	return result, id, nil
 
+}
+
+func errorLevelToText(i int64) string {
+	switch i {
+	case 0:
+		return "TRACE"
+	case 1:
+		return "DEBUG"
+	case 2:
+		return "INFO"
+	case 3:
+		return "WARN"
+	case 4:
+		return "ERROR"
+	case 5:
+		return "FATAL"
+	default:
+		return "NONE"
+	}
 }
