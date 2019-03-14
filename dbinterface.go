@@ -271,14 +271,22 @@ func dbInsertError(errorid, errorlevel int, errortext string, edgenodeid int, ev
 	}
 
 	var count int
-	err := db.QueryRow(`select count(*) from system_errors 
+	err := db.QueryRow(`select countn from system_errors 
         where edgenodeid=$1 and error_id=$2 and 
         current_timestamp - datetime < `+every, edgenodeidp, erroridp).Scan(&count)
-	if count > 0 {
+	if err != nil {
+		log.Debugf("Error when checking row: %s", err)
 		return
 	}
+	if count > 0 {
+		_, err = db.Exec(`update system_errors set count = $1 
+            where edgenodeid=$2 and error_id=$3 and
+            current_timestamp - datetime < `+every, count+1, edgenodeidp, erroridp)
+		log.Debugf("Increasing error id: [%d] text: \"%s\" to count %d", errorid, errortext, count+1)
+	} else {
+		_, err = db.Exec(query, erroridp, errorlevel, errortext, edgenodeidp)
+	}
 
-	_, err = db.Exec(query, erroridp, errorlevel, errortext, edgenodeidp)
 	if err != nil {
 		log.Warnf("Failed to insert error \"%s\" due to error: %s", errortext, err)
 	}

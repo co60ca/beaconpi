@@ -4,6 +4,7 @@ create table system_errors (
   error_id integer default null,
   error_level integer,
   error_text text not null,
+  countn integer not null default 1,
   edgenodeid integer references edge_node default null
 );
 
