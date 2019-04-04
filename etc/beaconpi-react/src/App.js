@@ -21,7 +21,20 @@ class Home extends Component {
   //}
 
   render() {
-    if (!this.props.loginData.loggedin) {
+    try {
+      return (
+        <div>
+        <Row>
+          <Col md={12}>
+            <p>Welcome home {this.props.loginData.displayName || ''}, here is the system
+            status</p>
+          </Col>
+        </Row>
+        <QuickStat/>
+        </div>
+      )
+   } catch {
+      // If not logged in or the screen is set to non authenticated
       return (
         <Row> <Col md={12}>
           <p> Welcome to Beaconpi, You're not logged in so we can't
@@ -29,18 +42,7 @@ class Home extends Component {
           </p>
         </Col> </Row>
       )
-    }
-    return (
-      <div>
-      <Row>
-        <Col md={12}>
-          <p>Welcome home {this.props.loginData.displayName}, here is the system
-          status</p>
-        </Col>
-      </Row>
-      <QuickStat/>
-      </div>
-    )
+   }
   }
 }
 
