@@ -26,7 +26,7 @@ class Home extends Component {
         <div>
         <Row>
           <Col md={12}>
-            <p>Welcome home {this.props.loginData.displayName || ''}, here is the system
+            <p>Welcome home {this.props.loginData.displayName || 'anonymous'}, here is the system
             status</p>
           </Col>
         </Row>
