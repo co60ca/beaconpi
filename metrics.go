@@ -155,7 +155,9 @@ func MetricStart(metrics *MetricsParameters) {
 	mux.Handle("/config/modedge", wc.CheckCookie(cookieAction)(modEdge()))
 	mux.Handle("/config/allbeacons", wc.CheckCookie(cookieAction)(getBeacons()))
 	mux.Handle("/config/alledges", wc.CheckCookie(cookieAction)(getEdges()))
-	mux.Handle("/stats/quick", wc.CheckCookie(cookieAction)(quickStats()))
+	// Home screen can be unauthenticated
+	//	mux.Handle("/stats/quick", wc.CheckCookie(cookieAction)(quickStats()))
+	mux.Handle("/stats/quick", quickStats())
 
 	mux.Handle("/history/short", wc.CheckCookie(cookieAction)(beaconShortHistory()))
 	//TODO(mae) restore cookie
