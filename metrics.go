@@ -1,175 +1,54 @@
+// Beacon Pi, a edge node system for iBeacons and Edge nodes made of Pi
+// Copyright (C) 2017  Maeve Kennedy
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+// metricsserv builds cause problems with other binaries due to inclusion
+// of packages that require python3
+// +build metrics
+
 package beaconpi
 
 import (
 	"encoding/json"
-	"github.com/co60ca/trilateration"
 	"github.com/co60ca/webauth"
 	"github.com/lib/pq"
 	"github.com/rs/cors"
 	log "github.com/sirupsen/logrus"
 	"net/http"
-	"sort"
-	"time"
-	"database/sql"
 	"strings"
+	"time"
 )
 
+// MetricsParameters represents required data for a metrics server
 type MetricsParameters struct {
 	Port           string
 	DriverName     string
 	DataSourceName string
-	AllowedOrigin   string
-}
-
-type locationResults struct {
-	Bracket    time.Time
-	Beacon     int
-	Loc        []float64
-	Edge       []int
-	Distance   []float64
-	Confidence int
-}
-
-type result struct {
-	Bracket  time.Time
-	Datetime time.Time
-	Edge     int
-	Rssi     int
+	AllowedOrigin  string
+	SMTPHost       string
+	SMTPPort       int
+	SMTPUser       string
+	SMTPPassphrase string
+	MonitorEmail   string
 }
 
 var mp MetricsParameters
 
-func getDBMForBeacon(beacon int) (int, error) {
-	dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
-	db, err := dbconfig.openDB()
-	if err != nil {
-		return 0, err
-	}
-	defer db.Close()
-	var rxpow int
-	err = db.QueryRow(`
-		select txpower
-		from ibeacons
-		where id = $1`, beacon).Scan(&rxpow)
-	if err != nil {
-		return 0, err
-	}
-	return rxpow, nil
-}
-
-// Used for sorting edge/edge location by id
-type sortableedge struct {
-	edges []int
-	locs  [][]float64
-}
-
-func (s sortableedge) Len() int {
-	return len(s.edges)
-}
-func (s sortableedge) Less(i, j int) bool {
-	return s.edges[i] < s.edges[j]
-}
-func (s sortableedge) Swap(i, j int) {
-	// Swap edges
-	s.edges[i], s.edges[j] = s.edges[j], s.edges[i]
-	// Swap locs
-	s.locs[i], s.locs[j] = s.locs[j], s.locs[i]
-}
-
-func beaconTrilateration() http.Handler {
-	return http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
-		decoder := json.NewDecoder(req.Body)
-		requestData := struct {
-			Edges []int
-			// Location of edges in order of Edges member
-			// above second dim x,y,z
-			EdgeLocations [][]float64
-			Beacon        int
-			Since         string
-			Before        string
-			Filter        string
-			// Randomized string for keeping history
-			Clientid string
-			BracketSeconds int
-		}{}
-		if err := decoder.Decode(&requestData); err != nil {
-			log.Infof("Received invalid request %s", err)
-			http.Error(w, "Invalid request", 400)
-			return
-		}
-		log.Infof("Request data: %v", requestData)
-
-		sortedges := sortableedge{
-			requestData.Edges,
-			requestData.EdgeLocations,
-		}
-		sort.Sort(sortedges)
-
-		dbconfig := dbHandler{mp.DriverName, mp.DataSourceName}
-		db, err := dbconfig.openDB()
-		if err != nil {
-			log.Infof("Error opening DB", err)
-			http.Error(w, "Server failure", 500)
-			return
-		}
-		defer db.Close()
-		rows, err := db.Query(`
-			select to_timestamp(
-				floor(extract(epoch from beacon_log.datetime)/$5)*$5)
-				as time_bracket,
-				datetime, edgenodeid, rssi
-				from beacon_log
-				where edgenodeid = any ($1::int[])
-				and beaconid = $2 and datetime > $3 and datetime < $4
-				order by time_bracket, datetime, edgenodeid;
-		`, pq.Array(requestData.Edges), requestData.Beacon, requestData.Since,
-			requestData.Before, requestData.BracketSeconds)
-		if err != nil {
-			log.Infof("Error getting query results", err)
-			http.Error(w, "Server failure", 500)
-			return
-		}
-		defer rows.Close()
-
-		var results []result
-
-		for rows.Next() {
-			var row result
-			if err = rows.Scan(&row.Bracket, &row.Datetime,
-				&row.Edge, &row.Rssi); err != nil {
-				log.Infof("Error scanning rows", err)
-				http.Error(w, "Server failure", 500)
-				return
-			}
-			results = append(results, row)
-		}
-
-		switch requestData.Filter {
-		case "average":
-			results = filterAverage(results)
-		default:
-			log.Infof("Received invalid request, unknown filter")
-			http.Error(w, "Invalid request", 400)
-			return
-		}
-		log.Debugf("Results into trilat: %#v", results)
-		trilatresults := trilat(results, requestData.EdgeLocations, db)
-		log.Debugf("Results out of trilat: %#v", trilatresults)
-		for i, _ := range trilatresults {
-			trilatresults[i].Beacon = requestData.Beacon
-		}
-
-		encoder := json.NewEncoder(w)
-		if err = encoder.Encode(trilatresults); err != nil {
-			log.Infof("Failed to encode results", err)
-			http.Error(w, "Server failure", 500)
-			return
-		}
-	})
-}
-
+// beaconShortHistory is used to do the plotting of rssi in the web interface
 func beaconShortHistory() http.Handler {
-	return http.HandlerFunc(func (w http.ResponseWriter, req *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		decoder := json.NewDecoder(req.Body)
 		requestData := struct {
 			Edges  []int
@@ -184,7 +63,7 @@ func beaconShortHistory() http.Handler {
 			return
 		}
 		// Backwards compat for tools that didn't use "Before"
-		if (requestData.Before == "") {
+		if requestData.Before == "" {
 			// Gosh I hope no one is using this in 2050
 			requestData.Before = "2050-01-01T01:00:00Z"
 		}
@@ -197,7 +76,6 @@ func beaconShortHistory() http.Handler {
 			return
 		}
 		defer db.Close()
-
 
 		rows, err := db.Query(`
 			select datetime, edgenodeid, rssi
@@ -243,115 +121,7 @@ func beaconShortHistory() http.Handler {
 	})
 }
 
-func trilatCollect(tempresults []result, edgeloc [][]float64, db *sql.DB) locationResults {
-	var task trilateration.Parameters3
-	copy(task.Loc[0][:], edgeloc[0][:])
-	copy(task.Loc[1][:], edgeloc[1][:])
-	copy(task.Loc[2][:], edgeloc[2][:])
-	var edges []int
-	var distances []float64
-
-	for i, r := range tempresults {
-		dist, err := distanceModel(r.Rssi, r.Edge, db)
-		if err != nil {
-			// TODO(mae) don't panic here
-			log.Panicf("Failed to get model, possible missing edge %s", err);
-		}
-		task.Dis[i] = dist
-		edges = append(edges, r.Edge)
-		distances = append(distances, dist)
-	}
-	loc, err := task.SolveTrilat3()
-	if err != nil {
-		log.Panicf("Error occured in Trilat3 %s", err)
-	}
-	return locationResults{
-		Bracket:    tempresults[0].Bracket,
-		Loc:        loc,
-		Edge:       edges,
-		Distance:   distances,
-		Confidence: 0,
-	}
-}
-
-func trilat(results []result, edgeloc [][]float64, db *sql.DB) []locationResults {
-	var output []locationResults
-	// Sort such that the time brackets are in order and the edge nodes
-	// thereafter, this should ensure the edgeloc slice is also in
-	// the correct order.
-	sort.Slice(results, func(i, j int) bool {
-		earlier := results[i].Bracket.Before(results[j].Bracket)
-		return earlier || (results[i].Bracket.Equal(results[j].Bracket) && results[i].Edge < results[j].Edge)
-	})
-	log.Debugf("Results, sorted: %#v", results)
-	var tempresults []result
-	donext := false
-	currtime := results[0].Bracket
-
-	log.Debugf("Results into bracketing loop: %#v", results)
-
-	for i := 0; i < len(results); i++ {
-		if results[i].Bracket.Equal(currtime) {
-			// Add to current set
-			tempresults = append(tempresults, results[i])
-		} else {
-			donext = true
-		}
-		currtime = results[i].Bracket
-		if donext || i == len(results)-1 {
-			donext = false
-			// Do trilat for this tempresults set
-			tempLocResults := trilatCollect(tempresults, edgeloc, db)
-			output = append(output, tempLocResults)
-			// New tempresults, for the last loop it wont matter
-			tempresults = nil
-			// Add the one that was skipped for this round into the next set
-			tempresults = append(tempresults, results[i])
-		}
-	}
-	return output
-}
-
-func filterAverage(results []result) []result {
-	var out []result
-	var counts []int
-	codetoint := make(map[uint64]int)
-	timetoint := make(map[time.Time]uint32)
-	edgetoint := make(map[int]uint32)
-	for _, r := range results {
-		var ok bool
-		var tint uint32
-		var edgeint uint32
-		var codeint int
-		if tint, ok = timetoint[r.Bracket]; !ok {
-			timetoint[r.Bracket] = uint32(len(timetoint))
-			tint = uint32(len(timetoint) - 1)
-		}
-		if edgeint, ok = edgetoint[r.Edge]; !ok {
-			edgetoint[r.Edge] = uint32(len(edgetoint))
-			edgeint = uint32(len(edgetoint) - 1)
-		}
-		code := uint64(tint) | uint64(edgeint)<<32
-		if codeint, ok = codetoint[code]; !ok {
-			codetoint[code] = len(codetoint)
-			codeint = codetoint[code]
-			// Make a new entry in out
-			out = append(out, r)
-			counts = append(counts, 1)
-			out[codeint].Datetime = r.Bracket
-		} else {
-			// Just add the RSSI value
-			out[codeint].Rssi += r.Rssi
-			counts[codeint] += 1
-		}
-	}
-	// compute mean
-	for i, _ := range out {
-		out[i].Rssi /= counts[i]
-	}
-	return out
-}
-
+// MetricStart is the main entry point of the metrics server
 func MetricStart(metrics *MetricsParameters) {
 	mp = *metrics
 
@@ -369,9 +139,9 @@ func MetricStart(metrics *MetricsParameters) {
 		log.Fatalf("Failed to open DB for auth %s", err)
 	}
 	wc := webauth.AuthDBCookie{
-		Authdb: wa,
+		Authdb:        wa,
 		RedirectLogin: "",
-		RedirectHome: "",
+		RedirectHome:  "",
 	}
 	cookieAction := webauth.FAIL_COOKIE_UNAUTHORIZED
 
@@ -381,26 +151,33 @@ func MetricStart(metrics *MetricsParameters) {
 	mux.Handle("/auth/allusers", wc.CheckCookie(cookieAction)(wc.GetUsers()))
 	mux.Handle("/auth/moduser", wc.CheckCookie(cookieAction)(wc.ModUser()))
 
-	mux.Handle("/config/modbeacon", wc.CheckCookie(cookieAction)(ModBeacon()))
-	mux.Handle("/config/modedge", wc.CheckCookie(cookieAction)(ModEdge()))
-	mux.Handle("/config/allbeacons", wc.CheckCookie(cookieAction)(GetBeacons()))
-	mux.Handle("/config/alledges", wc.CheckCookie(cookieAction)(GetEdges()))
-	mux.Handle("/stats/quick", wc.CheckCookie(cookieAction)(quickStats()))
+	mux.Handle("/config/modbeacon", wc.CheckCookie(cookieAction)(modBeacon()))
+	mux.Handle("/config/modedge", wc.CheckCookie(cookieAction)(modEdge()))
+	mux.Handle("/config/allbeacons", wc.CheckCookie(cookieAction)(getBeacons()))
+	mux.Handle("/config/alledges", wc.CheckCookie(cookieAction)(getEdges()))
+	// Home screen can be unauthenticated
+	//	mux.Handle("/stats/quick", wc.CheckCookie(cookieAction)(quickStats()))
+	mux.Handle("/stats/quick", quickStats())
 
 	mux.Handle("/history/short", wc.CheckCookie(cookieAction)(beaconShortHistory()))
-	mux.Handle("/history/trilateration", wc.CheckCookie(cookieAction)(beaconTrilateration()))
+	//TODO(mae) restore cookie
+	mux.Handle("/history/maptracking", wc.CheckCookie(cookieAction)(filteredMapLocation(mp)))
+	mux.Handle("/maps/allmaps", wc.CheckCookie(cookieAction)(allMaps(mp)))
+	mux.Handle("/maps/mapimage", wc.CheckCookie(cookieAction)(fetchImage(mp)))
 
 	mux.Handle("/history/export", wc.CheckCookie(cookieAction)(getCSV()))
 
 	origins := strings.Split(mp.AllowedOrigin, ",")
 	log.Infof("Allowed domains: %#v", origins)
 	c := cors.New(cors.Options{
-		AllowedOrigins: origins,
+		AllowedOrigins:   origins,
 		AllowCredentials: true,
 	})
 	handler := c.Handler(mux)
 
 	// Start
+	log.Infof("Starting background tasks")
+	go metricsBackgroundTasks()
 	log.Infof("Starting metrics server on %v", metrics.Port)
 	log.Fatal(http.ListenAndServe(":"+metrics.Port, handler))
 }

@@ -1,15 +1,16 @@
 import React, { Component } from 'react';
 import './App.css';
-import { QuickStat } from './QuickStat.js';
-import { Plot } from './TimeSeries.js';
-import { FieldGroup } from './FormUtils.js';
-import { AdminUserMod, AdminModBeacon, AdminModEdge } from './AdminScreens.js';
-import ExportScreen from './ExportScreen';
-import './bootstrap/css/bootstrap.min.css';
-import './bootstrap/css/bootstrap-theme.min.css';
-import { decorate, observable } from "mobx";
-import { observer } from "mobx-react";
-import * as cfg from "./config.js";
+    import { QuickStat } from './QuickStat.js';
+    import { Plot } from './TimeSeries.js';
+    import { FieldGroup } from './FormUtils.js';
+    import { Lateration } from './Trilat.js';
+    import { AdminUserMod, AdminModBeacon, AdminModEdge } from './AdminScreens.js';
+    import ExportScreen from './ExportScreen';
+    import './bootstrap/css/bootstrap.min.css';
+    import './bootstrap/css/bootstrap-theme.min.css';
+    import { decorate, observable } from "mobx";
+    import { observer } from "mobx-react";
+    import * as cfg from "./config.js";
 
 import { Grid, Row, Col, Navbar, Nav, NavItem, NavDropdown,
   MenuItem, Button, Alert } from 'react-bootstrap';
@@ -20,7 +21,20 @@ class Home extends Component {
   //}
 
   render() {
-    if (!this.props.loginData.loggedin) {
+    try {
+      return (
+        <div>
+        <Row>
+          <Col md={12}>
+            <p>Welcome home {this.props.loginData.displayName || 'anonymous'}, here is the system
+            status</p>
+          </Col>
+        </Row>
+        <QuickStat/>
+        </div>
+      )
+   } catch {
+      // If not logged in or the screen is set to non authenticated
       return (
         <Row> <Col md={12}>
           <p> Welcome to Beaconpi, You're not logged in so we can't
@@ -28,18 +42,7 @@ class Home extends Component {
           </p>
         </Col> </Row>
       )
-    }
-    return (
-      <div>
-      <Row>
-        <Col md={12}>
-          <p>Welcome home {this.props.loginData.displayName}, here is the system
-          status</p>
-        </Col>
-      </Row>
-      <QuickStat/>
-      </div>
-    )
+   }
   }
 }
 
@@ -241,6 +244,7 @@ class App extends Component {
     switch (eid) {
       case 1: this.setState({view: "home"}); break;
       case 2: this.setState({view: "plot"}); break;
+      case 3: this.setState({view: "lateration"}); break;
       case 4: this.setState({view: "export"}); break;
       case 20.1: this.setState({view: "usermod"}); break;
       case 20.2: this.setState({view: "modbeacon"}); break;
@@ -256,6 +260,7 @@ class App extends Component {
     switch (this.state.view) {
       case "login": view = <Login loginData={loginData} />; break;
       case "home": view = <Home loginData={loginData} />; break;
+      case "lateration": view = <Lateration />; break;
       case "plot": view = <Plot />; break;
       case "usermod": view = <AdminUserMod />; break;
       case "modbeacon": view = <AdminModBeacon />; break;

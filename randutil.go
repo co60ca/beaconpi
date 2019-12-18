@@ -17,22 +17,35 @@
 package beaconpi
 
 import (
-	"crypto/x509"
-	"io/ioutil"
-	"log"
+	crand "crypto/rand"
+	"encoding/base64"
+	"encoding/binary"
+	"math/rand"
 )
 
-// LoadFileToCert is a helper that opens a file by string and returns a
-// x509 cert pool giving a fatal error on failure
-func LoadFileToCert(file string) *x509.CertPool {
-	certs := x509.NewCertPool()
-	cert, err := ioutil.ReadFile(file)
+// initRand must be called to get a random number generator with a seed from
+// the system
+func initRand() *rand.Rand {
+	randbyte := make([]byte, 4)
+	_, err := crand.Read(randbyte)
 	if err != nil {
-		log.Fatalf("File: %s Error: %s", file, err)
-		return nil
+		panic("Getting random seed from system failed: " + err.Error())
 	}
-	if !certs.AppendCertsFromPEM(cert) {
-		return nil
-	}
-	return certs
+	seed, _ := binary.Varint(randbyte)
+	rng := rand.New(rand.NewSource(seed))
+	return rng
+}
+
+// getRand wraps initRand as an interface for getting a *rand.Rand
+func getRand() *rand.Rand {
+	rng := initRand()
+	return rng
+}
+
+// RandBase64 returns a random Base64 string with a size of multiples of 3
+// bytes when decoded
+func randBase64(rng *rand.Rand, sets int) string {
+	b := make([]byte, sets*3)
+	rng.Read(b)
+	return base64.StdEncoding.EncodeToString(b)
 }

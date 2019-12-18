@@ -3,11 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "array-equal": "^1.0.0",
     "bootstrap": "^3.3.7",
+    "chart.js": "^2.7.2",
     "color-scheme": "^1.0.0",
     "dateformat": "^3.0.3",
     "fili": "^2.0.1",
     "hex64": "^0.4.0",
+    "konva": "^2.3.0",
     "mobx": "^4.1.1",
     "mobx-react": "^5.0.0",
     "react": "^16.3.1",
@@ -15,12 +18,20 @@
     "react-chartjs-2": "^2.7.0",
     "react-datetime": "^2.14.0",
     "react-dom": "^16.3.1",
-    "react-scripts": "1.1.4"
+    "react-konva": "^1.7.14",
+    "react-measure": "^2.1.0",
+    "react-scripts": "^2.1.8"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject"
-  }
+  },
+  "browserslist": [
+    ">0.2%",
+    "not dead",
+    "not ie <= 11",
+    "not op_mini all"
+  ]
 }

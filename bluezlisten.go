@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//
-
 package beaconpi
 
 import (
@@ -29,7 +27,9 @@ import (
 	"time"
 )
 
-func ProduceBLEAdv(bleadv chan *bytes.Buffer) {
+// produceBLEAdv is run on the edge node to produce ble advertisements
+// that are detected by the device and pass them through in binary to bleadv
+func produceBLEAdv(bleadv chan *bytes.Buffer) {
 	log.Println("Starting hcitool for BLE")
 	hcitool := exec.Command("hcitool", "lescan", "--duplicates")
 	if err := hcitool.Start(); err != nil {
@@ -76,15 +76,31 @@ func ProduceBLEAdv(bleadv chan *bytes.Buffer) {
 	}
 }
 
+// BeaconRecord represents a complete Beacon record including ID data
+// and time & power
 type BeaconRecord struct {
 	BeaconData
 	Datetime time.Time
 	Rssi     int16
 }
 
-func ProcessIBeacons(client *clientinfo, brs chan BeaconRecord) {
+// IBeaconListener is public provider for BeaconRecords
+func IBeaconListener(validbeacons []BeaconData, brs chan BeaconRecord) {
+	client := clientinfo{
+		nodes: make(map[string]struct{}),
+	}
+	for _, v := range validbeacons {
+		uid := v.String()
+		client.nodes[uid] = struct{}{}
+	}
+	processIBeacons(&client, brs)
+}
+
+// processIBeacons returns a stream of BeaconRecords given the collection of
+// valid beacons given from client
+func processIBeacons(client *clientinfo, brs chan BeaconRecord) {
 	bleadv := make(chan *bytes.Buffer, 128)
-	go ProduceBLEAdv(bleadv)
+	go produceBLEAdv(bleadv)
 
 	for {
 		bytesb := <-bleadv
@@ -123,7 +139,7 @@ func ProcessIBeacons(client *clientinfo, brs chan BeaconRecord) {
 
 		var rssi int8
 		// NOTE: we throw away the 21st bit, which is the send power
-		binary.Read(reader, binary.BigEndian, &rssi);
+		binary.Read(reader, binary.BigEndian, &rssi)
 		// Read the real RSSI
 		if err := binary.Read(reader, binary.BigEndian, &rssi); err != nil {
 			log.Printf("Failed to parse Rssi: %s", err)

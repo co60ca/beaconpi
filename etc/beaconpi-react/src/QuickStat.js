@@ -16,9 +16,22 @@ class QuickStat extends Component {
       edgeTotal: -1,
       hasData: false,
     }
+    this.fetchdata = this.fetchdata.bind(this);
+    this.refreshID = null;
   }
 
   componentDidMount() {
+    this.fetchdata();
+    this.refreshID = setInterval(this.fetchdata, 5000);
+  }
+
+  componentWillUnmount() {
+    if (this.refreshID) {
+        clearInterval(this.refreshID);
+    }
+  }
+
+  fetchdata() {
     var that = this;
     fetch(cfg.app + "/stats/quick", {
       method: 'GET',
